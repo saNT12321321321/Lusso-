@@ -1,0 +1,7 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/crm"
+  to = "/crm.html"
+  status = 200
