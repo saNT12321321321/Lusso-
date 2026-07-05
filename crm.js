@@ -12,8 +12,9 @@
     manualForm: { cliente: '', tel: '', servicioId: null, barberoId: null, fecha: todayKey(), hora: '10:00', customPrecio: '' },
     pipelineDate: todayKey(), pipelineMonthCursor: todayKey(), pipelineBarberFilter: 'all',
     configDraft: null, adminChangePass: { actual: '', nueva: '' }, resetPinFor: null, resetPinVal: '',
-    sidebarOpen: false
+    sidebarOpen: false, metricsPeriod: 30
   };
+  let metricsCharts = {};
 
   try { const saved = JSON.parse(localStorage.getItem('ibiza_auth') || 'null'); if (saved) state.auth = saved; } catch (e) { }
 
@@ -85,6 +86,156 @@
     validTurnos.forEach(t => { const k = t.barbero_id; if (!k) return; if (!porBarbero[k]) porBarbero[k] = { count: 0, revenue: 0 }; porBarbero[k].count++; porBarbero[k].revenue += Number(t.precio); });
     return { ref, revenue, turnos: validTurnos.length, ticket: validTurnos.length ? revenue / validTurnos.length : 0, cancelados, noshows, totalTurnos: turnos.length, nuevos, ocupacion, porServicio, porBarbero, label: MM[ref.getMonth()] + ' ' + ref.getFullYear() };
   }
+  function shortDayLabel(dateKey) {
+    const parts = dateKey.split('-'); const d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    return d.getDate() + ' ' + MM[d.getMonth()];
+  }
+  function dailySeries(days, offsetDays) {
+    const out = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = addDays(new Date(), -(i + offsetDays));
+      const key = keyOf(d);
+      const dayTurnos = DATA.turnos.filter(t => t.fecha === key);
+      const validos = dayTurnos.filter(t => t.estado !== 'cancelado' && t.estado !== 'no-show');
+      out.push({ date: key, revenue: validos.reduce((a, t) => a + Number(t.precio), 0), turnos: validos.length, label: shortDayLabel(key) });
+    }
+    return out;
+  }
+  function buildInsights(cur, prev) {
+    const items = [];
+    function add(label, curVal, prevVal, fmt, higherIsBetter, minPct) {
+      const change = pctChange(curVal, prevVal);
+      if (Math.abs(change) < (minPct || 4)) return;
+      items.push({ label, change, isGood: higherIsBetter ? change > 0 : change < 0, curFmt: fmt(curVal), prevFmt: fmt(prevVal) });
+    }
+    add('Ingresos', cur.revenue, prev.revenue, fmtMoney.format, true, 3);
+    add('Turnos realizados', cur.turnos, prev.turnos, fmtN.format, true, 3);
+    add('Clientes nuevos', cur.nuevos, prev.nuevos, fmtN.format, true, 5);
+    add('Ticket promedio', cur.ticket, prev.ticket, fmtMoney.format, true, 3);
+    add('Ocupación de agenda', cur.ocupacion, prev.ocupacion, v => Math.round(v) + '%', true, 3);
+    const perdCur = cur.totalTurnos ? (cur.cancelados + cur.noshows) / cur.totalTurnos * 100 : 0;
+    const perdPrev = prev.totalTurnos ? (prev.cancelados + prev.noshows) / prev.totalTurnos * 100 : 0;
+    add('Turnos cancelados / no-show', perdCur, perdPrev, v => Math.round(v) + '%', false, 3);
+    items.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+    return items;
+  }
+  function insightsCard(cur, prev) {
+    const items = buildInsights(cur, prev);
+    const positivos = items.filter(x => x.isGood), negativos = items.filter(x => !x.isGood);
+    function row(x) {
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #ece5d8">
+        <div style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:none;background:${x.isGood ? 'rgba(79,136,101,0.14)' : 'rgba(168,81,66,0.14)'};color:${x.isGood ? '#3f7a55' : '#a04236'}">${x.isGood ? '▲' : '▼'}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:#241d14">${esc(x.label)}</div><div style="font-size:11.5px;color:#8a7c68">${x.prevFmt} → ${x.curFmt}</div></div>
+        <div style="font-size:13px;font-weight:800;color:${x.isGood ? '#3f7a55' : '#a04236'};white-space:nowrap">${x.change > 0 ? '+' : ''}${x.change}%</div>
+      </div>`;
+    }
+    const negBlock = negativos.length
+      ? `<div><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#a04236;margin-bottom:2px">⚠ Esto te está frenando</div>${negativos.map(row).join('')}</div>`
+      : `<div style="font-size:12.5px;color:#3f7a55;padding:8px 0">✓ No hay señales de alerta importantes este período.</div>`;
+    const posBlock = positivos.length
+      ? `<div style="margin-top:16px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#3f7a55;margin-bottom:2px">✓ Esto te está haciendo crecer</div>${positivos.map(row).join('')}</div>` : '';
+    return `<div class="chart-card">
+      <h3>Diagnóstico del mes</h3>
+      <div class="chart-sub">Qué está empujando y qué está frenando tu crecimiento vs. el mes anterior</div>
+      ${negBlock}${posBlock}
+    </div>`;
+  }
+  function trendChartsSection() {
+    const period = state.metricsPeriod || 30;
+    return `<div class="chart-card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div><h3 style="margin-bottom:2px">Ingresos por día</h3><div class="chart-sub" style="margin-bottom:0">Período actual vs. período anterior equivalente</div></div>
+        <div class="chart-toggle">
+          <button type="button" class="${period === 7 ? 'active' : ''}" onclick="Crm.setMetricsPeriod(7)">7 días</button>
+          <button type="button" class="${period === 30 ? 'active' : ''}" onclick="Crm.setMetricsPeriod(30)">30 días</button>
+        </div>
+      </div>
+      <div style="height:260px;margin-top:14px"><canvas id="chartTrendRevenue"></canvas></div>
+    </div>
+    <div class="grid-2" style="margin-bottom:16px">
+      <div class="chart-card"><h3>Turnos por día</h3><div class="chart-sub">Cantidad realizada, mismo período</div><div style="height:220px;margin-top:10px"><canvas id="chartTrendTurnos"></canvas></div></div>
+      ${insightsCard(statsForMonth(0), statsForMonth(-1))}
+    </div>
+    <div class="grid-2" style="margin-bottom:16px">
+      <div class="chart-card"><h3>Ingresos por cliente (este mes)</h3><div class="chart-sub">Quién representa cuánto de la facturación</div><div style="height:230px;margin-top:10px"><canvas id="chartByClient"></canvas></div></div>
+      <div class="chart-card"><h3>Ingresos por servicio (este mes)</h3><div class="chart-sub">Qué servicios generan más facturación</div><div style="height:230px;margin-top:10px"><canvas id="chartByService"></canvas></div></div>
+    </div>`;
+  }
+  function destroyMetricsChart(key) { if (metricsCharts[key]) { metricsCharts[key].destroy(); delete metricsCharts[key]; } }
+  function renderMetricsCharts() {
+    if (typeof Chart === 'undefined' || !DATA) return;
+    const period = state.metricsPeriod || 30;
+    const curSeries = dailySeries(period, 0), prevSeries = dailySeries(period, period);
+    const cur = statsForMonth(0);
+
+    const trendCanvas = document.getElementById('chartTrendRevenue');
+    if (trendCanvas) {
+      destroyMetricsChart('trend');
+      metricsCharts.trend = new Chart(trendCanvas, {
+        type: 'line',
+        data: {
+          labels: curSeries.map(d => d.label),
+          datasets: [
+            { label: 'Período actual', data: curSeries.map(d => d.revenue), borderColor: '#c99a3f', backgroundColor: 'rgba(201,154,63,0.14)', tension: 0.35, fill: true, pointRadius: 2, pointBackgroundColor: '#c99a3f' },
+            { label: 'Período anterior', data: prevSeries.map(d => d.revenue), borderColor: '#a9987f', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#5a4f40', usePointStyle: true, boxWidth: 8, font: { size: 11 } } },
+            tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtMoney.format(ctx.parsed.y) } }
+          },
+          scales: {
+            x: { ticks: { color: '#8a7c68', font: { size: 10 } }, grid: { color: '#f0e9db' } },
+            y: { ticks: { color: '#8a7c68', font: { size: 10 }, callback: v => fmtMoney.format(v) }, grid: { color: '#f0e9db' } }
+          }
+        }
+      });
+    }
+    const turnosCanvas = document.getElementById('chartTrendTurnos');
+    if (turnosCanvas) {
+      destroyMetricsChart('turnos');
+      metricsCharts.turnos = new Chart(turnosCanvas, {
+        type: 'bar',
+        data: { labels: curSeries.map(d => d.label), datasets: [{ label: 'Turnos', data: curSeries.map(d => d.turnos), backgroundColor: '#4f7f9c', borderRadius: 4, maxBarThickness: 26 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: '#8a7c68', font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: '#8a7c68', font: { size: 10 }, precision: 0 }, grid: { color: '#f0e9db' } } }
+        }
+      });
+    }
+    const clientCanvas = document.getElementById('chartByClient');
+    if (clientCanvas) {
+      destroyMetricsChart('client');
+      const byClient = {};
+      DATA.turnos.filter(t => inMonth(t.fecha) && t.estado !== 'cancelado' && t.estado !== 'no-show').forEach(t => {
+        const k = (t.cliente_nombre || '').trim().toLowerCase(); if (!k) return;
+        if (!byClient[k]) byClient[k] = { nombre: t.cliente_nombre, val: 0 };
+        byClient[k].val += Number(t.precio);
+      });
+      const arr = Object.values(byClient).sort((a, b) => b.val - a.val);
+      const top = arr.slice(0, 5), otros = arr.slice(5).reduce((s, x) => s + x.val, 0);
+      const labels = top.map(x => x.nombre).concat(otros > 0 ? ['Otros'] : []);
+      const data = top.map(x => x.val).concat(otros > 0 ? [otros] : []);
+      metricsCharts.client = new Chart(clientCanvas, {
+        type: 'doughnut',
+        data: { labels: labels.length ? labels : ['Sin datos'], datasets: [{ data: data.length ? data : [1], backgroundColor: ['#c99a3f', '#4f7f9c', '#4f8865', '#93708a', '#b3703f', '#c9c0ae'], borderColor: '#fff', borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#5a4f40', font: { size: 10.5 }, boxWidth: 10 } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtMoney.format(ctx.parsed) } } } }
+      });
+    }
+    const serviceCanvas = document.getElementById('chartByService');
+    if (serviceCanvas) {
+      destroyMetricsChart('service');
+      const svData = Object.values(cur.porServicio).sort((a, b) => b.revenue - a.revenue);
+      metricsCharts.service = new Chart(serviceCanvas, {
+        type: 'doughnut',
+        data: { labels: svData.length ? svData.map(s => s.nombre) : ['Sin datos'], datasets: [{ data: svData.length ? svData.map(s => s.revenue) : [1], backgroundColor: ['#c99a3f', '#4f7f9c', '#4f8865', '#93708a', '#4f9c94', '#b3703f', '#6b6f9c'], borderColor: '#fff', borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#5a4f40', font: { size: 10.5 }, boxWidth: 10 } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtMoney.format(ctx.parsed) } } } }
+      });
+    }
+  }
   function compareCard(icon, label, curr, prev, fmt) {
     const change = pctChange(curr, prev);
     const isUp = change >= 0;
@@ -139,12 +290,9 @@
     return `
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Comparando <b style="color:var(--text)">${cur.label}</b> contra <b style="color:var(--text)">${prev.label}</b></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px">${cards}</div>
-    <section class="card" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px">Tendencia de ingresos</h3><span style="font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">últimos 6 meses</span></div>
-      <div style="display:flex;align-items:flex-end;gap:10px;height:110px;padding-bottom:22px;position:relative">
-        ${trendBars.map(tb => `<div style="flex:1;height:100%;display:flex;align-items:flex-end;position:relative"><div style="width:100%;border-radius:6px 6px 2px 2px;height:${tb.height}%;background:${tb.color}"></div><div style="position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10.5px;color:var(--muted2);font-weight:600">${tb.label}</div></div>`).join('')}
-      </div>
-    </section>
+
+    ${trendChartsSection()}
+
     <div class="grid-2" style="margin-bottom:16px">
       <section class="card">
         <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Turnos perdidos</h3>
@@ -160,7 +308,7 @@
       </section>
     </div>
     <section class="card" style="margin-bottom:16px">
-      <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Ingresos por servicio (este mes)</h3>
+      <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Ingresos por servicio — detalle</h3>
       ${svRows}
     </section>
     <section class="card">
@@ -690,6 +838,7 @@
         ${content()}
       </div>
     </div>`;
+    if (state.tab === 'metricas' && state.auth.role === 'admin') setTimeout(renderMetricsCharts, 0);
   }
 
   // ============ API pública para los onclick ============
@@ -712,6 +861,7 @@
     selectTab: (t) => { state.tab = t; state.openClientKey = null; state.sidebarOpen = false; render(); },
     toggleSidebar: () => { state.sidebarOpen = !state.sidebarOpen; render(); },
     closeSidebar: () => { state.sidebarOpen = false; render(); },
+    setMetricsPeriod: (p) => { state.metricsPeriod = p; render(); },
     setEstado,
     pipelineMonth: (delta) => { const parts = state.pipelineMonthCursor.split('-'); const d = new Date(+parts[0], +parts[1] - 1 + delta, 1); state.pipelineMonthCursor = keyOf(d); render(); },
     pipelineToday: () => { state.pipelineDate = todayKey(); state.pipelineMonthCursor = todayKey(); render(); },
