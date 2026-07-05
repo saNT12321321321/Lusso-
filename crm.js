@@ -11,7 +11,8 @@
     newBarberForm: { nombre: '', alias: '', esp: '', color: PALETTE[0] },
     manualForm: { cliente: '', tel: '', servicioId: null, barberoId: null, fecha: todayKey(), hora: '10:00', customPrecio: '' },
     pipelineDate: todayKey(), pipelineMonthCursor: todayKey(), pipelineBarberFilter: 'all',
-    configDraft: null, adminChangePass: { actual: '', nueva: '' }, resetPinFor: null, resetPinVal: ''
+    configDraft: null, adminChangePass: { actual: '', nueva: '' }, resetPinFor: null, resetPinVal: '',
+    sidebarOpen: false
   };
 
   try { const saved = JSON.parse(localStorage.getItem('ibiza_auth') || 'null'); if (saved) state.auth = saved; } catch (e) { }
@@ -144,7 +145,7 @@
         ${trendBars.map(tb => `<div style="flex:1;height:100%;display:flex;align-items:flex-end;position:relative"><div style="width:100%;border-radius:6px 6px 2px 2px;height:${tb.height}%;background:${tb.color}"></div><div style="position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10.5px;color:var(--muted2);font-weight:600">${tb.label}</div></div>`).join('')}
       </div>
     </section>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="grid-2" style="margin-bottom:16px">
       <section class="card">
         <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Turnos perdidos</h3>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
@@ -274,10 +275,11 @@
     const authIni = isAdmin ? 'AD' : initials(barb(myId).alias);
     const authLabel = isAdmin ? 'Administrador' : barb(myId).alias;
     const authColor = isAdmin ? 'var(--gold)' : barb(myId).color;
-    return `<aside style="width:250px;flex:none;border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow-y:auto">
+    return `<aside class="crm-sidebar${state.sidebarOpen ? ' open' : ''}" id="crmSidebar">
       <div style="display:flex;align-items:center;gap:11px;padding:4px 6px 22px">
         <div style="width:40px;height:40px;flex:none;border-radius:11px;background:linear-gradient(160deg,var(--gold-soft),#a97c2c);display:flex;align-items:center;justify-content:center;font-size:18px">✂️</div>
-        <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:16.5px">IBIZA studio</div><div style="font-size:11px;color:var(--muted2);font-weight:500">Panel de gestión</div></div>
+        <div style="flex:1;min-width:0"><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:16.5px">IBIZA studio</div><div style="font-size:11px;color:var(--muted2);font-weight:500">Panel de gestión</div></div>
+        <button onclick="Crm.closeSidebar()" style="display:none" class="crm-burger crm-sidebar-close">✕</button>
       </div>
       ${isAdmin ? `<button onclick="Crm.selectTab('gerente')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:14px;background:${state.tab === 'gerente' ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === 'gerente' ? 'var(--text)' : 'var(--muted)'}">Panel general</button>
       <div style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted2);padding:6px 12px 7px">Gestión</div>${manageItems}
@@ -376,7 +378,7 @@
         ${trendBars.map(tb => `<div style="flex:1;height:100%;display:flex;align-items:flex-end;position:relative"><div style="width:100%;border-radius:6px 6px 2px 2px;height:${tb.height}%;background:${tb.color}"></div><div style="position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10.5px;color:var(--muted2);font-weight:600">${tb.label}</div></div>`).join('')}
       </div>
     </section>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="grid-2" style="margin-bottom:16px">
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Clientes que más vienen</h3>${rankList(topVisitas.map((c, i) => rankRowView(i, c, c.visitas + ' visitas', c.visitas / (topVisitas[0] ? topVisitas[0].visitas || 1 : 1))))}</section>
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Participación en la ganancia</h3>${rankList(topGasto.map((c, i) => rankRowView(i, c, fmtMoney.format(c.gasto) + ' · ' + (c.gasto / totalRevAll * 100).toFixed(1) + '%', c.gasto / (topGasto[0] ? topGasto[0].gasto || 1 : 1))))}</section>
     </div>
@@ -423,7 +425,7 @@
       ${kpiCard('🎫', fmtMoney.format(s.ticket), 'Ticket promedio', 'por turno')}
     </div>
     <div style="margin-bottom:16px;font-size:12px;color:var(--muted);background:var(--panel);border:1px dashed var(--border-strong);border-radius:10px;padding:10px 12px">Cancelaciones: <b style="color:var(--gold-soft)">${cancel}</b> · No-shows: <b style="color:var(--gold-soft)">${noshow}</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="grid-2">
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Mi agenda</h3>
         ${days.length ? days.map(day => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:var(--gold);text-transform:uppercase;padding:6px 0"><span>${day.label}</span><span style="color:var(--muted2);font-weight:500">${day.countStr}</span></div>${day.items.map(it => agendaRow(it, false)).join('')}</div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:24px 10px">Sin turnos próximos cargados.</div>`}
       </section>
@@ -475,7 +477,7 @@
       return `<button onclick="Crm.setPipelineFilter('${ch.id}')" style="font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:20px;cursor:pointer;border:1px solid ${isOn ? (ch.color || 'var(--gold)') : 'var(--border-strong)'};background:${isOn ? tint(ch.color || '#c99a3f', 0.16) : 'var(--panel2)'};color:${isOn ? (ch.color || 'var(--gold)') : 'var(--muted)'}">${ch.label}</button>`;
     }).join('') : '';
     return `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
-      <div class="card" style="width:300px;flex:none">
+      <div class="card" style="width:300px;max-width:100%;flex:1 1 300px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <button onclick="Crm.pipelineMonth(-1)" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">‹</button>
           <div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;text-transform:capitalize">${grid.label}</div>
@@ -521,7 +523,7 @@
       <span id="clientCountSpan" style="font-size:12px;font-weight:600;color:var(--muted)">${filtered.length} cliente${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'}</span>
       <button onclick="Crm.toggleAddClient()" style="margin-left:auto;font-size:12.5px;font-weight:800;padding:10px 16px;border-radius:11px;border:none;cursor:pointer;background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f">+ Agregar cliente</button>
     </div>
-    ${state.showAddClient ? `<div class="card" style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    ${state.showAddClient ? `<div class="card grid-3" style="margin-bottom:14px">
       <input class="input" placeholder="Nombre completo" value="${esc(state.newClientForm.nombre)}" oninput="Crm.newClientField('nombre',this.value)">
       <input class="input" placeholder="Teléfono" value="${esc(state.newClientForm.tel)}" oninput="Crm.newClientField('tel',this.value)">
       <input class="input" placeholder="Email (opcional)" value="${esc(state.newClientForm.email)}" oninput="Crm.newClientField('email',this.value)">
@@ -531,7 +533,7 @@
   }
   function clientEditForm(c) {
     const allTags = ['VIP', 'Recurrente', 'Nuevo', 'Riesgo de fuga'];
-    return `<div onclick="event.stopPropagation()" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-strong);display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    return `<div onclick="event.stopPropagation()" class="grid-2" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-strong);gap:10px">
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Teléfono</label><input class="input" id="cf_tel" value="${esc(c.tel)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Email</label><input class="input" id="cf_email" value="${esc(c.email)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Cumpleaños (MM-DD)</label><input class="input" id="cf_cumple" placeholder="07-15" value="${esc(c.cumpleanos)}"></div>
@@ -562,7 +564,7 @@
       return `<div style="font-size:12.5px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px">${dayLabel(dk)}</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:6px">${cols}</div>`;
     }).join('');
     const projTotal = DATA.turnos.filter(a => a.estado !== 'cancelado').reduce((s, a) => s + Number(a.precio), 0);
-    return `<div class="card" style="margin-bottom:22px;display:grid;grid-template-columns:1fr 1fr;gap:11px">
+    return `<div class="card grid-2" style="margin-bottom:22px;gap:11px">
       <div style="grid-column:1/-1;font-weight:700;font-size:13.5px;margin-bottom:2px">Agregar turno manual (telefónico / mostrador)</div>
       <input class="input" id="mf_cliente" placeholder="Nombre del cliente" value="${esc(mf.cliente)}">
       <input class="input" id="mf_tel" placeholder="Teléfono (opcional)" value="${esc(mf.tel)}">
@@ -586,13 +588,13 @@
     const unica = dir.filter(c => c.visitas === 1).sort((a, b) => b.gasto - a.gasto).slice(0, 8);
     const noshowList = DATA.turnos.filter(a => a.estado === 'no-show');
     const ranking = dir.slice().sort((a, b) => (b.puntos || 0) - (a.puntos || 0)).slice(0, 5);
-    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    return `<div class="grid-2" style="margin-bottom:16px">
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Cumpleaños próximos (30 días)</h3>
         ${withBday.length ? withBday.map(x => `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;background:rgba(201,154,63,0.16);color:var(--gold)">${initials(x.c.nombre)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">${esc(x.c.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">en ${x.d} día${x.d === 1 ? '' : 's'}</div></div></div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">No hay cumpleaños próximos.</div>`}
       </section>
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Riesgo de fuga (1 sola visita)</h3>${rankList(unica.map((c, i) => rankRowView(i, c, '1 visita', 0.4)))}</section>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="grid-2">
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">No-shows recientes</h3>
         ${noshowList.length ? noshowList.map(a => `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;background:rgba(147,112,138,0.16);color:var(--purple)">${initials(a.cliente_nombre)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">${esc(a.cliente_nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${dayLabel(a.fecha)} · ${esc(a.servicio_nombre)}</div></div></div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">Sin no-shows recientes.</div>`}
       </section>
@@ -622,7 +624,7 @@
       ${bs}
       <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong)">
         <div style="font-weight:700;font-size:13px;margin-bottom:10px">+ Agregar barbero</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="grid-2" style="gap:8px;margin-bottom:8px">
           <input class="input" id="nb_nombre" placeholder="Nombre completo">
           <input class="input" id="nb_alias" placeholder="Alias (opcional)">
         </div>
@@ -632,14 +634,14 @@
     </section>
     <section class="card" style="margin-bottom:16px">
       <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Horario de atención</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="grid-2" style="gap:14px">
         <div><label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:6px">Apertura</label><input class="input" type="time" id="cfg_open" value="${minToStr(DATA.config.apertura_min)}"></div>
         <div><label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:6px">Cierre</label><input class="input" type="time" id="cfg_close" value="${minToStr(DATA.config.cierre_min)}"></div>
       </div>
     </section>
     <section class="card" style="margin-bottom:16px">
       <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Cambiar mi contraseña de administrador</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="grid-2" style="gap:10px;margin-bottom:10px">
         <input class="input" type="password" id="adm_actual" placeholder="Contraseña actual">
         <input class="input" type="password" id="adm_nueva" placeholder="Contraseña nueva">
       </div>
@@ -661,19 +663,33 @@
     else { const b = barb(state.tab); title = b.nombre; sub = 'Agenda y desempeño individual'; body = tabBarbero(state.tab); }
     const d = new Date(); const todayLong = DW[d.getDay()] + ' ' + d.getDate() + ' ' + MM[d.getMonth()];
     return `<main style="flex:1;min-width:0;display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 36px;border-bottom:1px solid var(--border)">
+      <div class="crm-header-bar">
         <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:23px">${esc(title)}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;font-weight:500">${esc(sub)}</div></div>
         <div style="font-size:12px;font-weight:700;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:7px 14px;border-radius:20px;white-space:nowrap">${todayLong}</div>
       </div>
-      <div style="flex:1;padding:28px 36px 52px;max-width:1180px;width:100%;animation:fadeIn .28s ease">${body}</div>
+      <div class="crm-content-body">${body}</div>
     </main>`;
+  }
+
+  function mobileTopbar() {
+    return `<div class="crm-topbar">
+      <button class="crm-burger" onclick="Crm.toggleSidebar()">☰</button>
+      <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.3px;text-transform:uppercase">IBIZA studio</div>
+    </div>`;
   }
 
   function render() {
     if (!state.auth) { renderLogin(); return; }
     if (state.auth.role === 'barbero' && !DATA.barberos.some(b => b.id === state.auth.id)) { state.tab = DATA.barberos[0] ? DATA.barberos[0].id : 'clientes'; }
     if (!state.tab || (state.tab === 'gerente' && state.auth.role !== 'admin')) state.tab = state.auth.role === 'admin' ? 'gerente' : (state.auth.id || 'clientes');
-    app.innerHTML = `<div style="min-height:100vh;background:var(--bg);display:flex;align-items:stretch">${sidebar()}${content()}</div>`;
+    app.innerHTML = `<div class="crm-layout">
+      ${mobileTopbar()}
+      <div class="crm-body-row">
+        <div class="crm-overlay${state.sidebarOpen ? ' open' : ''}" onclick="Crm.closeSidebar()"></div>
+        ${sidebar()}
+        ${content()}
+      </div>
+    </div>`;
   }
 
   // ============ API pública para los onclick ============
@@ -693,7 +709,9 @@
     },
     pickBarbero: (id) => { state.loginBarberId = id; renderLogin(); },
     loginAdmin, loginBarbero, logout,
-    selectTab: (t) => { state.tab = t; state.openClientKey = null; render(); },
+    selectTab: (t) => { state.tab = t; state.openClientKey = null; state.sidebarOpen = false; render(); },
+    toggleSidebar: () => { state.sidebarOpen = !state.sidebarOpen; render(); },
+    closeSidebar: () => { state.sidebarOpen = false; render(); },
     setEstado,
     pipelineMonth: (delta) => { const parts = state.pipelineMonthCursor.split('-'); const d = new Date(+parts[0], +parts[1] - 1 + delta, 1); state.pipelineMonthCursor = keyOf(d); render(); },
     pipelineToday: () => { state.pipelineDate = todayKey(); state.pipelineMonthCursor = todayKey(); render(); },
