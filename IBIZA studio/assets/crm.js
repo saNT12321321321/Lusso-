@@ -146,12 +146,12 @@
         <div style="display:flex;flex-direction:column;gap:12px">
           <div><label style="display:block;font-size:11.5px;font-weight:600;margin-bottom:6px;color:var(--muted)">Usuario</label><input class="input" value="${esc(state.loginUser)}" oninput="Crm.setLoginField('loginUser',this.value)"></div>
           <div><label style="display:block;font-size:11.5px;font-weight:600;margin-bottom:6px;color:var(--muted)">Contraseña</label><input class="input" type="password" value="${esc(state.loginPass)}" oninput="Crm.setLoginField('loginPass',this.value)"></div>
-          <button class="btn" ${adminValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginAdmin()" style="margin-top:6px;${adminValid ? 'background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar como administrador'}</button>
+          <button id="adminSubmitBtn" class="btn" ${adminValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginAdmin()" style="margin-top:6px;${adminValid ? 'background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar como administrador'}</button>
           <div style="font-size:10.5px;color:var(--muted2);text-align:center">Primera vez: la clave que escribas queda guardada para siempre.</div>
         </div>` : `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">${barberBtns}</div>
         ${state.loginBarberId ? `<div style="margin-bottom:12px"><label style="display:block;font-size:11.5px;font-weight:600;margin-bottom:6px;color:var(--muted)">PIN</label><input class="input" type="password" inputmode="numeric" value="${esc(state.loginPin)}" oninput="Crm.setLoginField('loginPin',this.value)"></div>` : ''}
-        <button class="btn" ${barberoValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginBarbero()" style="width:100%;${barberoValid ? 'background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar'}</button>
+        <button id="barberoSubmitBtn" class="btn" ${barberoValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginBarbero()" style="width:100%;${barberoValid ? 'background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar'}</button>
         <div style="font-size:10.5px;color:var(--muted2);text-align:center;margin-top:10px">Primera vez: el PIN que escribas queda guardado para siempre.</div>`}
       </div>
     </div>`;
@@ -576,7 +576,18 @@
   // ============ API pública para los onclick ============
   window.Crm = {
     setLoginMode: (m) => { state.loginMode = m; renderLogin(); },
-    setLoginField: (f, v) => { state[f] = v; },
+    setLoginField: (f, v) => {
+      state[f] = v;
+      if (f === 'loginUser' || f === 'loginPass') {
+        const valid = state.loginUser.trim() && state.loginPass.trim();
+        const btn = document.getElementById('adminSubmitBtn');
+        if (btn) { btn.disabled = !valid || state.loginBusy; btn.style.background = valid ? 'linear-gradient(160deg,var(--gold-soft),#b9862f)' : ''; btn.style.color = valid ? '#17130f' : ''; }
+      } else if (f === 'loginPin') {
+        const valid = state.loginBarberId && state.loginPin.trim();
+        const btn = document.getElementById('barberoSubmitBtn');
+        if (btn) { btn.disabled = !valid || state.loginBusy; btn.style.background = valid ? 'linear-gradient(160deg,var(--gold-soft),#b9862f)' : ''; btn.style.color = valid ? '#17130f' : ''; }
+      }
+    },
     pickBarbero: (id) => { state.loginBarberId = id; renderLogin(); },
     loginAdmin, loginBarbero, logout,
     selectTab: (t) => { state.tab = t; state.openClientKey = null; render(); },
