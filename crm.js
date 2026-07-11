@@ -10,7 +10,7 @@
     showAddClient: false, newClientForm: { nombre: '', tel: '', email: '' },
     newBarberForm: { nombre: '', alias: '', esp: '', color: PALETTE[0] },
     manualForm: { cliente: '', tel: '', servicioId: null, barberoId: null, fecha: todayKey(), hora: '10:00', customPrecio: '' },
-    pipelineDate: todayKey(), pipelineMonthCursor: todayKey(), pipelineBarberFilter: 'all',
+    pipelineBarberFilter: 'all',
     configDraft: null, adminChangePass: { actual: '', nueva: '' }, resetPinFor: null, resetPinVal: '',
     sidebarOpen: false, metricsPeriod: 30,
     calView: 'month', calAnchor: todayKey(), calSelectedDay: todayKey(), calActiveBarberos: null, calDetailId: null, calModalOpen: false
@@ -569,31 +569,13 @@
     </div>`;
   }
 
-  function buildMonthGrid(anchorKey) {
-    const parts = anchorKey.split('-'); const y = +parts[0], m = +parts[1] - 1;
-    const first = new Date(y, m, 1); const startOffset = first.getDay(); const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const counts = {}; DATA.turnos.forEach(a => { if (a.estado !== 'cancelado') counts[a.fecha] = (counts[a.fecha] || 0) + 1; });
-    const cells = []; for (let i = 0; i < startOffset; i++) cells.push({ empty: true });
-    for (let d = 1; d <= daysInMonth; d++) { const key = y + '-' + pad(m + 1) + '-' + pad(d); cells.push({ empty: false, key, day: d, count: counts[key] || 0, isToday: key === todayKey(), isSelected: key === state.pipelineDate }); }
-    return { cells, label: MM[m] + ' ' + y };
-  }
-
   function tabPipeline() {
     const isAdmin = state.auth.role === 'admin';
-    const grid = buildMonthGrid(state.pipelineMonthCursor);
-    const wdLabels = ['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(w => `<div style="text-align:center;font-size:9.5px;font-weight:700;color:var(--muted2)">${w}</div>`).join('');
-    const cellsHtml = grid.cells.map(c => {
-      if (c.empty) return `<div></div>`;
-      const bg = c.isSelected ? 'var(--gold)' : (c.isToday ? 'var(--panel2)' : 'transparent');
-      const fg = c.isSelected ? '#17130f' : (c.isToday ? 'var(--gold-soft)' : '#e9dfce');
-      const border = (c.isToday && !c.isSelected) ? 'rgba(201,154,63,0.5)' : 'var(--border)';
-      return `<button onclick="Crm.selectPipelineDate('${c.key}')" style="position:relative;aspect-ratio:1;border-radius:8px;border:1px solid ${border};background:${bg};color:${fg};font-size:11.5px;font-weight:700;cursor:pointer">${c.day}${c.count > 0 && !c.isSelected ? `<span style="position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--gold)"></span>` : ''}</button>`;
-    }).join('');
+    const today = todayKey();
     const barberFilter = isAdmin ? state.pipelineBarberFilter : state.auth.id;
-    const dayItems = DATA.turnos.filter(a => a.fecha === state.pipelineDate && (barberFilter === 'all' || a.barbero_id === barberFilter)).sort((x, y) => x.hora_min - y.hora_min);
-    const dayAll = DATA.turnos.filter(a => a.fecha === state.pipelineDate);
+    const dayItems = DATA.turnos.filter(a => a.fecha === today && (barberFilter === 'all' || a.barbero_id === barberFilter)).sort((x, y) => x.hora_min - y.hora_min);
+    const dayAll = DATA.turnos.filter(a => a.fecha === today);
     const dayRevenue = dayAll.filter(a => a.estado !== 'cancelado').reduce((s, a) => s + Number(a.precio), 0);
-    const dayPending = dayAll.filter(a => a.estado === 'confirmado').length;
     function card(a) { const b = barb(a.barbero_id); return `<div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px"><span style="font-weight:800;font-size:12.5px">${minToStr(a.hora_min)}</span><span style="font-size:11.5px;font-weight:700;color:var(--muted)">${fmtMoney.format(a.precio)}</span></div>
       <div style="font-size:12.5px;font-weight:700;margin-top:4px">${esc(a.cliente_nombre)}</div><div style="font-size:11px;color:var(--muted2)">${esc(a.servicio_nombre)}</div>
@@ -612,25 +594,9 @@
       const isOn = state.pipelineBarberFilter === ch.id;
       return `<button onclick="Crm.setPipelineFilter('${ch.id}')" style="font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:20px;cursor:pointer;border:1px solid ${isOn ? (ch.color || 'var(--gold)') : 'var(--border-strong)'};background:${isOn ? tint(ch.color || '#c99a3f', 0.16) : 'var(--panel2)'};color:${isOn ? (ch.color || 'var(--gold)') : 'var(--muted)'}">${ch.label}</button>`;
     }).join('') : '';
-    return `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
-      <div class="card" style="width:300px;max-width:100%;flex:1 1 300px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <button onclick="Crm.pipelineMonth(-1)" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">‹</button>
-          <div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;text-transform:capitalize">${grid.label}</div>
-          <button onclick="Crm.pipelineMonth(1)" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">›</button>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">${wdLabels}</div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cellsHtml}</div>
-        <button onclick="Crm.pipelineToday()" style="margin-top:12px;width:100%;text-align:center;font-size:11.5px;font-weight:700;color:var(--gold);background:rgba(201,154,63,0.12);border:1px solid rgba(201,154,63,0.3);border-radius:9px;padding:8px;cursor:pointer">Ir a hoy</button>
-      </div>
-      <div class="card" style="flex:1;min-width:240px;display:flex;flex-direction:column;justify-content:center">
-        <div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:16px;margin-bottom:12px">${dayLabel(state.pipelineDate)}</div>
-        <div style="display:flex;gap:8px">
-          <div style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px;text-align:center"><span style="display:block;font-weight:800;font-size:17px">${dayAll.length}</span><small style="font-size:10px;color:var(--muted2)">turnos</small></div>
-          <div style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px;text-align:center"><span style="display:block;font-weight:800;font-size:17px">${fmtMoney.format(dayRevenue)}</span><small style="font-size:10px;color:var(--muted2)">facturación</small></div>
-          <div style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px;text-align:center"><span style="display:block;font-weight:800;font-size:17px;color:var(--blue)">${dayPending}</span><small style="font-size:10px;color:var(--muted2)">pendientes</small></div>
-        </div>
-      </div>
+    return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:17px">${dayLabel(today)}</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">${dayAll.length} turno${dayAll.length === 1 ? '' : 's'} hoy</div></div>
+      <div style="text-align:right"><div style="font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px">Ingreso estimado del día</div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:25px;color:var(--gold-soft)">${fmtMoney.format(dayRevenue)}</div></div>
     </div>
     ${chips ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${chips}</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${cols}</div>`;
@@ -686,7 +652,7 @@
     const active = calActiveIds();
     return DATA.turnos.filter(a => a.fecha === dateKey && active.includes(a.barbero_id)).sort((x, y) => x.hora_min - y.hora_min);
   }
-  function calWeekStartKey(dateKey) { const d = new Date(dateKey); return keyOf(addDays(d, -d.getDay())); }
+  function calWeekStartKey(dateKey) { const d = keyToDate(dateKey); return keyOf(addDays(d, -d.getDay())); }
   function calHourRange() {
     const startH = Math.max(0, Math.floor((DATA.config.apertura_min || 540) / 60));
     const endH = Math.min(24, Math.ceil((DATA.config.cierre_min || 1200) / 60));
@@ -694,9 +660,9 @@
     return hours.length ? hours : [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
   }
   function calPeriodLabel() {
-    if (state.calView === 'month') { const d = new Date(state.calAnchor); return MM[d.getMonth()] + ' ' + d.getFullYear(); }
-    if (state.calView === 'day') { const d = new Date(state.calSelectedDay); return DW[d.getDay()] + ' ' + d.getDate() + ' de ' + MM[d.getMonth()]; }
-    const start = new Date(calWeekStartKey(state.calAnchor)), end = addDays(start, 6);
+    if (state.calView === 'month') { const d = keyToDate(state.calAnchor); return MM[d.getMonth()] + ' ' + d.getFullYear(); }
+    if (state.calView === 'day') { const d = keyToDate(state.calSelectedDay); return DW[d.getDay()] + ' ' + d.getDate() + ' de ' + MM[d.getMonth()]; }
+    const start = keyToDate(calWeekStartKey(state.calAnchor)), end = addDays(start, 6);
     return start.getDate() + ' – ' + end.getDate() + ' de ' + MM[end.getMonth()] + ' ' + end.getFullYear();
   }
   function calToolbar() {
@@ -712,7 +678,7 @@
     </div>`;
   }
   function calMiniCalendar() {
-    const d = new Date(state.calAnchor); const y = d.getFullYear(), m = d.getMonth();
+    const d = keyToDate(state.calAnchor); const y = d.getFullYear(), m = d.getMonth();
     const first = new Date(y, m, 1); const startOff = first.getDay(); const daysInMonth = new Date(y, m + 1, 0).getDate();
     const wd = ['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(w => `<div style="text-align:center;font-size:8.5px;color:var(--muted2);font-weight:700">${w}</div>`).join('');
     let cells = ''; for (let i = 0; i < startOff; i++) cells += '<div></div>';
@@ -740,7 +706,7 @@
     }).join('');
   }
   function calMonthView() {
-    const d = new Date(state.calAnchor); const y = d.getFullYear(), m = d.getMonth();
+    const d = keyToDate(state.calAnchor); const y = d.getFullYear(), m = d.getMonth();
     const first = new Date(y, m, 1); const startOff = first.getDay(); const daysInMonth = new Date(y, m + 1, 0).getDate();
     const wd = ['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(w => `<div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted2);padding:6px 0;background:var(--panel)">${w}</div>`).join('');
     let cells = ''; for (let i = 0; i < startOff; i++) cells += `<div style="background:var(--bg);min-height:92px"></div>`;
@@ -760,7 +726,7 @@
     return `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden">${wd}${cells}</div>`;
   }
   function calWeekView() {
-    const start = new Date(calWeekStartKey(state.calAnchor));
+    const start = keyToDate(calWeekStartKey(state.calAnchor));
     const hours = calHourRange(); const rowH = 42;
     let head = `<div></div>`;
     for (let i = 0; i < 7; i++) { const dd = addDays(start, i); const key = keyOf(dd); const isToday = key === todayKey();
@@ -1006,20 +972,17 @@
     closeSidebar: () => { state.sidebarOpen = false; render(); },
     setMetricsPeriod: (p) => { state.metricsPeriod = p; render(); },
     setEstado,
-    pipelineMonth: (delta) => { const parts = state.pipelineMonthCursor.split('-'); const d = new Date(+parts[0], +parts[1] - 1 + delta, 1); state.pipelineMonthCursor = keyOf(d); render(); },
-    pipelineToday: () => { state.pipelineDate = todayKey(); state.pipelineMonthCursor = todayKey(); render(); },
-    selectPipelineDate: (k) => { state.pipelineDate = k; render(); },
     setPipelineFilter: (id) => { state.pipelineBarberFilter = id; render(); },
     calSetView: (v) => { state.calView = v; render(); },
     calNav: (delta) => {
-      if (state.calView === 'month') { const d = new Date(state.calAnchor); state.calAnchor = keyOf(new Date(d.getFullYear(), d.getMonth() + delta, 1)); }
-      else if (state.calView === 'week') { state.calAnchor = keyOf(addDays(new Date(state.calAnchor), 7 * delta)); }
-      else { state.calSelectedDay = keyOf(addDays(new Date(state.calSelectedDay), delta)); state.calAnchor = state.calSelectedDay; }
+      if (state.calView === 'month') { const d = keyToDate(state.calAnchor); state.calAnchor = keyOf(new Date(d.getFullYear(), d.getMonth() + delta, 1)); }
+      else if (state.calView === 'week') { state.calAnchor = keyOf(addDays(keyToDate(state.calAnchor), 7 * delta)); }
+      else { state.calSelectedDay = keyOf(addDays(keyToDate(state.calSelectedDay), delta)); state.calAnchor = state.calSelectedDay; }
       render();
     },
     calToday: () => { const t = todayKey(); state.calAnchor = t; state.calSelectedDay = t; render(); },
     calSelectDay: (key) => { state.calSelectedDay = key; state.calAnchor = key; state.calView = 'day'; render(); },
-    calMiniMonth: (delta) => { const d = new Date(state.calAnchor); state.calAnchor = keyOf(new Date(d.getFullYear(), d.getMonth() + delta, 1)); render(); },
+    calMiniMonth: (delta) => { const d = keyToDate(state.calAnchor); state.calAnchor = keyOf(new Date(d.getFullYear(), d.getMonth() + delta, 1)); render(); },
     calToggleBarber: (id) => {
       const active = calActiveIds().slice(); const idx = active.indexOf(id);
       if (idx >= 0) active.splice(idx, 1); else active.push(id);
