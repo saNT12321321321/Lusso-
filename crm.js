@@ -9,11 +9,13 @@
     tab: 'gerente', openClientKey: null, clientDraft: null, clientSearch: '',
     showAddClient: false, newClientForm: { nombre: '', tel: '', email: '' },
     newBarberForm: { nombre: '', alias: '', esp: '', color: PALETTE[0] },
-    manualForm: { cliente: '', tel: '', servicioId: null, barberoId: null, fecha: todayKey(), hora: '10:00', customPrecio: '' },
+    manualForm: { cliente: '', tel: '', email: '', servicioId: null, barberoId: null, fecha: todayKey(), hora: '10:00', customPrecio: '', notas: '' },
     pipelineBarberFilter: 'all',
     configDraft: null, adminChangePass: { actual: '', nueva: '' }, resetPinFor: null, resetPinVal: '',
     sidebarOpen: false, metricsPeriod: 30,
-    calView: 'month', calAnchor: todayKey(), calSelectedDay: todayKey(), calActiveBarberos: null, calDetailId: null, calModalOpen: false
+    calView: 'month', calAnchor: todayKey(), calSelectedDay: todayKey(), calActiveBarberos: null, calDetailId: null, calModalOpen: false, calNotesEditId: null,
+    calBlockModalOpen: false, blockForm: { fecha: todayKey(), horaIni: '09:00', horaFin: '10:00', barberoId: 'all', motivo: '' },
+    reagendarId: null, ventaProductoOpen: false, ventaForm: { productoId: null, cantidad: 1, cliente: '', barberoId: null }
   };
   let metricsCharts = {};
 
@@ -249,6 +251,140 @@
       <div style="font-size:12px;font-weight:700;margin-top:6px;color:${color};display:flex;align-items:center;gap:4px;flex-wrap:wrap">${arrow} ${Math.abs(change)}% <span style="color:var(--muted2);font-weight:500">vs. mes anterior (${fmt(prev)})</span></div>
     </div>`;
   }
+  function canalStats() {
+    const dir = {};
+    DATA.turnos.forEach(t => {
+      if (t.estado === 'cancelado') return;
+      const origen = t.origen === 'online' ? 'online' : 'manual';
+      if (!dir[origen]) dir[origen] = { revenue: 0, turnos: 0, clientesSet: new Set() };
+      dir[origen].revenue += Number(t.precio) || 0;
+      dir[origen].turnos++;
+      dir[origen].clientesSet.add((t.cliente_nombre || '').trim().toLowerCase());
+    });
+    ['online', 'manual'].forEach(k => { if (!dir[k]) dir[k] = { revenue: 0, turnos: 0, clientesSet: new Set() }; });
+    return {
+      online: { revenue: dir.online.revenue, turnos: dir.online.turnos, clientes: dir.online.clientesSet.size, ltv: dir.online.clientesSet.size ? dir.online.revenue / dir.online.clientesSet.size : 0 },
+      manual: { revenue: dir.manual.revenue, turnos: dir.manual.turnos, clientes: dir.manual.clientesSet.size, ltv: dir.manual.clientesSet.size ? dir.manual.revenue / dir.manual.clientesSet.size : 0 }
+    };
+  }
+  function canalCard() {
+    const c = canalStats();
+    function row(label, d) {
+      return `<div style="flex:1;background:var(--panel2);border-radius:10px;padding:12px;text-align:center;min-width:120px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px">${label}</div>
+        <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:19px;margin-top:4px">${fmtMoney.format(d.ltv)}</div>
+        <div style="font-size:10.5px;color:var(--muted2)">LTV promedio · ${d.clientes} cliente${d.clientes === 1 ? '' : 's'}</div>
+      </div>`;
+    }
+    return `<section class="card">
+      <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">LTV por canal de adquisición</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${row('Reserva online', c.online)}${row('Manual / walk-in', c.manual)}</div>
+    </section>`;
+  }
+  function ocupacionHeatmapData() {
+    const hours = calHourRange();
+    const grid = {};
+    const since = addDays(new Date(), -60);
+    DATA.turnos.forEach(t => {
+      if (t.estado === 'cancelado') return;
+      const d = keyToDate(t.fecha);
+      if (d < since) return;
+      const day = d.getDay();
+      const hour = Math.floor((t.hora_min || 0) / 60);
+      const k = day + '_' + hour;
+      grid[k] = (grid[k] || 0) + 1;
+    });
+    let max = 1; Object.values(grid).forEach(v => { if (v > max) max = v; });
+    return { hours, grid, max };
+  }
+  function ocupacionHeatmap() {
+    const { hours, grid, max } = ocupacionHeatmapData();
+    const days = [0, 1, 2, 3, 4, 5, 6];
+    const header = `<div></div>` + days.map(d => `<div style="text-align:center;font-size:9.5px;font-weight:700;color:var(--muted2)">${DW[d]}</div>`).join('');
+    const rows = hours.map(h => {
+      const rowLabel = `<div style="font-size:9px;color:var(--muted2);text-align:right;padding-right:5px;line-height:22px">${h}:00</div>`;
+      const cells = days.map(d => {
+        const v = grid[d + '_' + h] || 0;
+        return `<div title="${v} turno${v === 1 ? '' : 's'}" style="height:22px;border-radius:3px;background:${v ? tint('#2563eb', Math.max(0.12, v / max)) : 'var(--panel2)'}"></div>`;
+      }).join('');
+      return rowLabel + cells;
+    }).join('');
+    return `<div style="display:grid;grid-template-columns:34px repeat(7,1fr);gap:3px;align-items:center">${header}${rows}</div>`;
+  }
+  function heatmapCard() {
+    return `<section class="card">
+      <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Ocupación por día y horario</h3>
+      <div class="chart-sub" style="margin-bottom:12px">Últimos 60 días — dónde tenés más y menos demanda</div>
+      ${ocupacionHeatmap()}
+    </section>`;
+  }
+  function comisionesSection() {
+    const cur = statsForMonth(0);
+    const rows = DATA.barberos.map(b => {
+      const c = cur.porBarbero[b.id] || { count: 0, revenue: 0 };
+      const pct = b.comision_pct != null ? b.comision_pct : 50;
+      const monto = c.revenue * pct / 100;
+      return `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)">
+        <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;flex:none;background:${b.color}22;color:${b.color}">${initials(b.alias)}</div>
+        <div style="flex:1;min-width:0;font-size:13.5px;font-weight:600">${esc(b.alias)}</div>
+        <div style="font-size:11.5px;color:var(--muted2);white-space:nowrap">${pct}% de ${fmtMoney.format(c.revenue)}</div>
+        <div style="font-size:13px;font-weight:800;text-align:right;white-space:nowrap;width:100px;color:var(--gold-soft)">${fmtMoney.format(monto)}</div>
+      </div>`;
+    }).join('');
+    const total = DATA.barberos.reduce((s, b) => { const c = cur.porBarbero[b.id] || { revenue: 0 }; const pct = b.comision_pct != null ? b.comision_pct : 50; return s + c.revenue * pct / 100; }, 0);
+    return `<section class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px">Comisiones a pagar (${cur.label})</h3><span style="font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">total: ${fmtMoney.format(total)}</span></div>
+      ${rows}
+      <div style="font-size:10.5px;color:var(--muted2);margin-top:10px">El % de comisión de cada barbero se edita en Configuración.</div>
+    </section>`;
+  }
+  function ventasProductosSection() {
+    const since = todayKey().slice(0, 7);
+    const ventasMes = (DATA.ventasProductos || []).filter(v => v.fecha && v.fecha.slice(0, 7) === since);
+    const total = ventasMes.reduce((s, v) => s + Number(v.precio) * Number(v.cantidad || 1), 0);
+    const porProducto = {};
+    ventasMes.forEach(v => { const k = v.producto_nombre; if (!porProducto[k]) porProducto[k] = { nombre: v.producto_nombre, cant: 0, rev: 0 }; porProducto[k].cant += Number(v.cantidad || 1); porProducto[k].rev += Number(v.precio) * Number(v.cantidad || 1); });
+    const rows = Object.values(porProducto).sort((a, b) => b.rev - a.rev).map(p => `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0;font-size:13.5px;font-weight:600">${esc(p.nombre)}</div>
+      <div style="font-size:12px;color:var(--muted2)">${p.cant} unidad${p.cant === 1 ? '' : 'es'}</div>
+      <div style="font-size:12.5px;font-weight:700;text-align:right;width:90px">${fmtMoney.format(p.rev)}</div>
+    </div>`).join('') || `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">Sin ventas de productos este mes.</div>`;
+    return `<section class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px">Ventas de productos (este mes)</h3><span style="font-size:11px;font-weight:800;color:var(--gold-soft);background:var(--panel2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">${fmtMoney.format(total)}</span></div>
+      ${rows}
+    </section>`;
+  }
+  function ventaProductoModal() {
+    if (!state.ventaProductoOpen) return '';
+    const vf = state.ventaForm;
+    const productos = DATA.productos || [];
+    if (!productos.length) {
+      return `<div onclick="Crm.closeVentaProducto()" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px">
+        <div class="card" onclick="event.stopPropagation()" style="width:360px;max-width:100%;text-align:center">
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px">Todavía no cargaste productos</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Agregalos desde Configuración → Catálogo de productos.</div>
+          <button class="btn btn-ghost" onclick="Crm.closeVentaProducto()">Cerrar</button>
+        </div>
+      </div>`;
+    }
+    const pOpts = productos.map(p => `<option value="${p.id}" ${vf.productoId === p.id ? 'selected' : ''}>${esc(p.nombre)} · ${fmtMoney.format(p.precio)}</option>`).join('');
+    const bOpts = `<option value="">Sin asignar</option>` + DATA.barberos.map(b => `<option value="${b.id}" ${vf.barberoId === b.id ? 'selected' : ''}>${esc(b.alias)}</option>`).join('');
+    return `<div onclick="Crm.closeVentaProducto()" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div class="card" onclick="event.stopPropagation()" style="width:380px;max-width:100%">
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px">Vender producto</div>
+        <div class="grid-2" style="gap:10px">
+          <select class="input" id="vp_producto" style="grid-column:1/-1">${pOpts}</select>
+          <input class="input" type="number" min="1" id="vp_cantidad" value="${vf.cantidad}" placeholder="Cantidad">
+          <select class="input" id="vp_barbero">${bOpts}</select>
+          <input class="input" id="vp_cliente" placeholder="Cliente (opcional)" value="${esc(vf.cliente)}" style="grid-column:1/-1">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button class="btn btn-ghost" onclick="Crm.closeVentaProducto()">Cancelar</button>
+          <button class="btn btn-gold" onclick="Crm.saveVentaProducto()">Registrar venta</button>
+        </div>
+      </div>
+    </div>`;
+  }
   function tabMetricas() {
     const cur = statsForMonth(0), prev = statsForMonth(-1);
     const cards = [
@@ -312,10 +448,16 @@
       <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Ingresos por servicio — detalle</h3>
       ${svRows}
     </section>
-    <section class="card">
+    <section class="card" style="margin-bottom:16px">
       <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Rendimiento por barbero (este mes vs. anterior)</h3>
       ${bRows}
-    </section>`;
+    </section>
+    ${comisionesSection()}
+    <div class="grid-2" style="margin-bottom:16px">
+      ${canalCard()}
+      ${heatmapCard()}
+    </div>
+    ${ventasProductosSection()}`;
   }
   function rankRowView(i, c, valStr, pct, colorOverride) {
     const bColor = colorOverride || (c.barbero ? barb(c.barbero).color : '#2563eb');
@@ -594,12 +736,18 @@
       const isOn = state.pipelineBarberFilter === ch.id;
       return `<button onclick="Crm.setPipelineFilter('${ch.id}')" style="font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:20px;cursor:pointer;border:1px solid ${isOn ? (ch.color || 'var(--gold)') : 'var(--border-strong)'};background:${isOn ? tint(ch.color || '#2563eb', 0.16) : 'var(--panel2)'};color:${isOn ? (ch.color || 'var(--gold)') : 'var(--muted)'}">${ch.label}</button>`;
     }).join('') : '';
+    const ventasHoy = (DATA.ventasProductos || []).filter(v => v.fecha === today);
+    const ventasHoyTotal = ventasHoy.reduce((s, v) => s + Number(v.precio) * Number(v.cantidad || 1), 0);
     return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-      <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:17px">${dayLabel(today)}</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">${dayAll.length} turno${dayAll.length === 1 ? '' : 's'} hoy</div></div>
-      <div style="text-align:right"><div style="font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px">Ingreso estimado del día</div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:25px;color:var(--gold-soft)">${fmtMoney.format(dayRevenue)}</div></div>
+      <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:17px">${dayLabel(today)}</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">${dayAll.length} turno${dayAll.length === 1 ? '' : 's'} hoy${ventasHoy.length ? ' · ' + ventasHoy.length + ' producto' + (ventasHoy.length === 1 ? '' : 's') + ' vendido' + (ventasHoy.length === 1 ? '' : 's') : ''}</div></div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <button onclick="Crm.openVentaProducto()" style="font-size:12px;font-weight:700;padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">🛍️ Vender producto</button>
+        <div style="text-align:right"><div style="font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px">Ingreso estimado del día</div><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:25px;color:var(--gold-soft)">${fmtMoney.format(dayRevenue + ventasHoyTotal)}</div></div>
+      </div>
     </div>
     ${chips ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${chips}</div>` : ''}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${cols}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${cols}</div>
+    ${ventaProductoModal()}`;
   }
 
   function tabClientes() {
@@ -678,6 +826,13 @@
     const active = calActiveIds();
     return DATA.turnos.filter(a => a.fecha === dateKey && active.includes(a.barbero_id)).sort((x, y) => x.hora_min - y.hora_min);
   }
+  function calBlocksForDay(dateKey, barberoId) {
+    return (DATA.bloqueos || []).filter(bl => bl.fecha === dateKey && (!bl.barbero_id || bl.barbero_id === barberoId));
+  }
+  function calBlocksForDayAny(dateKey) {
+    const active = calActiveIds();
+    return (DATA.bloqueos || []).filter(bl => bl.fecha === dateKey && (!bl.barbero_id || active.includes(bl.barbero_id)));
+  }
   function calWeekStartKey(dateKey) { const d = keyToDate(dateKey); return keyOf(addDays(d, -d.getDay())); }
   function calHourRange() {
     const startH = Math.max(0, Math.floor((DATA.config.apertura_min || 540) / 60));
@@ -700,6 +855,7 @@
       <button onclick="Crm.calNav(1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">›</button>
       <div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;text-transform:capitalize;margin-right:auto">${calPeriodLabel()}</div>
       <div style="display:inline-flex;gap:2px;background:var(--panel2);padding:3px;border-radius:10px">${viewBtns}</div>
+      <button onclick="Crm.calOpenBlockModal()" style="font-size:12px;font-weight:700;padding:8px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--muted);cursor:pointer">🚫 Bloquear horario</button>
       <button onclick="Crm.calOpenModal()" style="font-size:12px;font-weight:800;padding:8px 14px;border-radius:9px;border:none;cursor:pointer;background:linear-gradient(160deg,var(--gold-soft),#1d4ed8);color:#ffffff">+ Nuevo turno</button>
     </div>`;
   }
@@ -765,8 +921,14 @@
     for (let i = 0; i < 7; i++) {
       const dd = addDays(start, i); const key = keyOf(dd);
       const items = calTurnosForDay(key);
+      const blocks = calBlocksForDayAny(key);
       let col = `<div style="position:relative;border-left:1px solid var(--border);height:${rowH * hours.length}px">`;
       hours.forEach((h, hi) => { col += `<div onclick="Crm.calOpenModal('${key}','${pad(h)}:00')" style="position:absolute;top:${hi * rowH}px;left:0;right:0;height:${rowH}px;border-top:1px solid var(--border);cursor:pointer"></div>`; });
+      blocks.forEach(bl => {
+        const top = ((bl.hora_inicio_min - hours[0] * 60) / 60) * rowH;
+        const h = Math.max(((bl.hora_fin_min - bl.hora_inicio_min) / 60) * rowH - 2, 10);
+        col += `<div onclick="event.stopPropagation()" title="${esc(bl.motivo || 'Bloqueado')}" style="position:absolute;left:0;right:0;top:${top}px;height:${h}px;background:repeating-linear-gradient(45deg,var(--panel2),var(--panel2) 6px,var(--border) 6px,var(--border) 12px);z-index:1;font-size:8px;color:var(--muted2);font-weight:700;padding:2px 4px;overflow:hidden">🚫 ${esc(bl.motivo || 'Bloqueado')}</div>`;
+      });
       items.forEach(t => {
         const b = barb(t.barbero_id);
         const top = ((t.hora_min - hours[0] * 60) / 60) * rowH;
@@ -786,8 +948,14 @@
     let body = `<div>${hours.map(h => `<div style="height:${rowH}px;font-size:9.5px;color:var(--muted2);text-align:right;padding-right:6px;transform:translateY(-6px)">${h}:00</div>`).join('')}</div>`;
     barberos.forEach(b => {
       const items = DATA.turnos.filter(a => a.fecha === key && a.barbero_id === b.id);
+      const blocks = calBlocksForDay(key, b.id);
       let col = `<div style="position:relative;border-left:1px solid var(--border);height:${rowH * hours.length}px">`;
       hours.forEach((h, hi) => { col += `<div onclick="Crm.calOpenModal('${key}','${pad(h)}:00','${b.id}')" style="position:absolute;top:${hi * rowH}px;left:0;right:0;height:${rowH}px;border-top:1px solid var(--border);cursor:pointer"></div>`; });
+      blocks.forEach(bl => {
+        const top = ((bl.hora_inicio_min - hours[0] * 60) / 60) * rowH;
+        const h3 = Math.max(((bl.hora_fin_min - bl.hora_inicio_min) / 60) * rowH - 2, 14);
+        col += `<div onclick="event.stopPropagation()" title="${esc(bl.motivo || 'Bloqueado')}" style="position:absolute;left:0;right:0;top:${top}px;height:${h3}px;background:repeating-linear-gradient(45deg,var(--panel2),var(--panel2) 6px,var(--border) 6px,var(--border) 12px);z-index:1;font-size:8.5px;color:var(--muted2);font-weight:700;padding:3px 5px;overflow:hidden">🚫 ${esc(bl.motivo || 'Bloqueado')}</div>`;
+      });
       items.forEach(t => {
         const top = ((t.hora_min - hours[0] * 60) / 60) * rowH;
         const h2 = Math.max((t.duracion_min / 60) * rowH - 2, 22);
@@ -800,24 +968,57 @@
   function calFormModal() {
     if (!state.calModalOpen) return '';
     const mf = state.manualForm;
+    const isReagendar = !!state.reagendarId;
     const svOpts = DATA.servicios.map(s => `<option value="${s.id}">${esc(s.nombre)} · ${fmtMoney.format(s.precio_base)}</option>`).join('') + `<option value="custom">Otro importe (personalizado)</option>`;
     const bOpts = DATA.barberos.map(b => `<option value="${b.id}" ${mf.barberoId === b.id ? 'selected' : ''}>${esc(b.alias)}</option>`).join('');
     return `<div onclick="Crm.calCloseModal()" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px">
       <div class="card" onclick="event.stopPropagation()" style="width:420px;max-width:100%;max-height:90vh;overflow-y:auto">
-        <div style="font-weight:700;font-size:15px;margin-bottom:14px">Nuevo turno</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px">${isReagendar ? 'Reagendar turno' : 'Nuevo turno'}</div>
         <div class="grid-2" style="gap:10px">
-          <input class="input" id="mf_cliente" placeholder="Nombre del cliente" value="${esc(mf.cliente)}" style="grid-column:1/-1">
-          <input class="input" id="mf_tel" placeholder="Teléfono (opcional)" value="${esc(mf.tel)}" style="grid-column:1/-1">
-          <select class="input" id="mf_servicio">${svOpts}</select>
+          <input class="input" id="mf_cliente" placeholder="Nombre del cliente" value="${esc(mf.cliente)}" style="grid-column:1/-1" ${isReagendar ? 'disabled' : ''}>
+          <input class="input" id="mf_tel" placeholder="Teléfono (opcional)" value="${esc(mf.tel)}">
+          <input class="input" type="email" id="mf_email" placeholder="Email (opcional)" value="${esc(mf.email)}">
+          <select class="input" id="mf_servicio" style="grid-column:1/-1">${svOpts}</select>
           <select class="input" id="mf_barbero">${bOpts}</select>
+          <input class="input" type="number" step="500" id="mf_custom" placeholder="Importe personalizado ($)">
           <input class="input" type="date" id="mf_fecha" value="${mf.fecha}">
           <input class="input" type="time" id="mf_hora" value="${mf.hora}">
-          <input class="input" type="number" step="500" id="mf_custom" placeholder="Importe personalizado ($)" style="grid-column:1/-1">
+          <textarea class="input" id="mf_notas" placeholder="Notas internas (preferencias, alergias, etc.)" style="grid-column:1/-1;min-height:52px;resize:vertical">${esc(mf.notas)}</textarea>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
           <button class="btn btn-ghost" onclick="Crm.calCloseModal()">Cancelar</button>
-          <button class="btn btn-gold" onclick="Crm.addManual()">Guardar turno</button>
+          <button class="btn btn-gold" onclick="Crm.addManual()">${isReagendar ? 'Guardar cambios' : 'Guardar turno'}</button>
         </div>
+      </div>
+    </div>`;
+  }
+  function calBlockModal() {
+    if (!state.calBlockModalOpen) return '';
+    const bf = state.blockForm;
+    const bOpts = `<option value="all" ${bf.barberoId === 'all' ? 'selected' : ''}>Todos los barberos</option>` + DATA.barberos.map(b => `<option value="${b.id}" ${bf.barberoId === b.id ? 'selected' : ''}>${esc(b.alias)}</option>`).join('');
+    const existentes = (DATA.bloqueos || []).filter(bl => bl.fecha >= todayKey()).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio_min - b.hora_inicio_min);
+    return `<div onclick="Crm.calCloseBlockModal()" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div class="card" onclick="event.stopPropagation()" style="width:440px;max-width:100%;max-height:90vh;overflow-y:auto">
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px">Bloquear horario</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Vacaciones, almuerzo, franco — el horario queda oculto en la reserva online.</div>
+        <div class="grid-2" style="gap:10px">
+          <input class="input" type="date" id="bf_fecha" value="${bf.fecha}" style="grid-column:1/-1">
+          <input class="input" type="time" id="bf_ini" value="${bf.horaIni}">
+          <input class="input" type="time" id="bf_fin" value="${bf.horaFin}">
+          <select class="input" id="bf_barbero" style="grid-column:1/-1">${bOpts}</select>
+          <input class="input" id="bf_motivo" placeholder="Motivo (ej. Almuerzo, Vacaciones)" value="${esc(bf.motivo)}" style="grid-column:1/-1">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button class="btn btn-ghost" onclick="Crm.calCloseBlockModal()">Cerrar</button>
+          <button class="btn btn-gold" onclick="Crm.saveBlock()">Bloquear</button>
+        </div>
+        ${existentes.length ? `<div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border-strong)">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted2);margin-bottom:8px">Bloqueos próximos</div>
+          ${existentes.map(bl => { const bb = bl.barbero_id ? barb(bl.barbero_id) : null; return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border)">
+            <div style="flex:1;min-width:0;font-size:12px"><b>${dayLabel(bl.fecha)}</b> · ${minToStr(bl.hora_inicio_min)}–${minToStr(bl.hora_fin_min)} ${bb ? '· ' + esc(bb.alias) : '· Todos'}${bl.motivo ? ' · ' + esc(bl.motivo) : ''}</div>
+            <button onclick="Crm.deleteBlock('${bl.id}')" style="font-size:10.5px;font-weight:700;color:var(--red);background:none;border:none;cursor:pointer">Quitar</button>
+          </div>`; }).join('')}
+        </div>` : ''}
       </div>
     </div>`;
   }
@@ -836,11 +1037,22 @@
         <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">${esc(t.cliente_tel || 'Sin teléfono')}</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:10px">${esc(t.servicio_nombre)} · ${fmtMoney.format(t.precio)}</div>
         <div style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;color:${b.color};margin-bottom:14px"><span style="width:8px;height:8px;border-radius:50%;background:${b.color}"></span>${esc(b.alias)}</div>
+        <div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted2)">Notas internas</span>
+            ${state.calNotesEditId !== t.id ? `<button onclick="Crm.calEditNotes(${t.id})" style="font-size:10.5px;font-weight:700;color:var(--gold);background:none;border:none;cursor:pointer">Editar</button>` : ''}
+          </div>
+          ${state.calNotesEditId === t.id
+            ? `<textarea class="input" id="calNotesInput" style="min-height:56px;resize:vertical">${esc(t.notas_internas || '')}</textarea>
+               <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px"><button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" onclick="Crm.calEditNotes(null)">Cancelar</button><button class="btn btn-gold" style="padding:6px 12px;font-size:11px" onclick="Crm.calSaveNotes(${t.id})">Guardar</button></div>`
+            : `<div style="font-size:12px;color:${t.notas_internas ? 'var(--text)' : 'var(--muted2)'};background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;min-height:18px;white-space:pre-wrap">${t.notas_internas ? esc(t.notas_internas) : 'Sin notas.'}</div>`}
+        </div>
         ${t.estado === 'confirmado' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
           <button onclick="Crm.calCloseDetail();Crm.setEstado(${t.id},'completado')" style="flex:1;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:none;cursor:pointer;background:var(--green);color:#ffffff">✓ Completado</button>
           <button onclick="Crm.calCloseDetail();Crm.setEstado(${t.id},'no-show')" style="flex:1;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--purple);cursor:pointer">No-show</button>
           <button onclick="Crm.calCloseDetail();Crm.setEstado(${t.id},'cancelado')" style="flex:1;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--red);cursor:pointer">Cancelar</button>
-        </div>` : ''}
+        </div>
+        <button onclick="Crm.calOpenReagendar(${t.id})" style="width:100%;margin-bottom:10px;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">📅 Reagendar</button>` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--border-strong);padding-top:10px">
           <button onclick="Crm.deleteTurno(${t.id})" style="font-size:11px;font-weight:700;color:var(--red);background:none;border:none;cursor:pointer">Eliminar definitivamente</button>
           <button class="btn btn-ghost" onclick="Crm.calCloseDetail()">Cerrar</button>
@@ -861,7 +1073,8 @@
       </div>
     </div>
     ${calFormModal()}
-    ${calDetailModal()}`;
+    ${calDetailModal()}
+    ${calBlockModal()}`;
   }
 
   function tabMarketing() {
@@ -897,7 +1110,13 @@
       <input class="input" type="number" step="0.05" id="bf_${b.id}" value="${b.factor}">
       <button onclick="Crm.showResetPin('${b.id}')" style="font-size:10.5px;font-weight:700;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--muted);cursor:pointer;white-space:nowrap">Resetear PIN</button>
       <input class="input" type="email" id="be_${b.id}" placeholder="Email (para avisos de turno)" value="${esc(b.email || '')}" style="grid-column:1/-1;margin-top:2px">
+      <div style="grid-column:1/-1;margin-top:6px;display:flex;align-items:center;gap:8px"><label style="font-size:11px;color:var(--muted);white-space:nowrap">% comisión</label><input class="input" type="number" min="0" max="100" id="bc_${b.id}" value="${b.comision_pct != null ? b.comision_pct : 50}" style="max-width:90px"></div>
     </div>${state.resetPinFor === b.id ? `<div style="grid-column:1/-1;display:flex;gap:8px;padding:8px 0"><input class="input" id="resetPinVal" placeholder="Nuevo PIN" style="max-width:160px"><button class="btn btn-gold" onclick="Crm.confirmResetPin('${b.id}')">Confirmar</button><button class="btn btn-ghost" onclick="Crm.showResetPin(null)">Cancelar</button></div>` : ''}`).join('');
+    const prodRows = (DATA.productos || []).map(p => `<div style="display:grid;grid-template-columns:1.6fr 0.8fr auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--border)">
+      <input class="input" id="pr_n_${p.id}" value="${esc(p.nombre)}">
+      <input class="input" type="number" step="100" id="pr_p_${p.id}" value="${p.precio}">
+      <button onclick="Crm.deleteProducto('${p.id}')" style="font-size:10.5px;font-weight:700;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--red);cursor:pointer">Quitar</button>
+    </div>`).join('') || `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:14px 0">Todavía no cargaste productos.</div>`;
     return `<section class="card" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px">Servicios y precios</h3><span style="font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">nombre · precio base · duración (min)</span></div>
       ${sv}
@@ -913,6 +1132,18 @@
         </div>
         <input class="input" id="nb_esp" placeholder="Especialidad (ej. Fades & clásico)" style="margin-bottom:10px">
         <button class="btn btn-gold" style="width:100%" onclick="Crm.addBarber()">Agregar barbero</button>
+      </div>
+    </section>
+    <section class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px">Catálogo de productos</h3><span style="font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">para venta de retail</span></div>
+      ${prodRows}
+      <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px">+ Agregar producto</div>
+        <div class="grid-2" style="gap:8px;margin-bottom:8px">
+          <input class="input" id="np_nombre" placeholder="Nombre (ej. Cera capilar)">
+          <input class="input" type="number" step="100" id="np_precio" placeholder="Precio">
+        </div>
+        <button class="btn btn-gold" style="width:100%" onclick="Crm.addProducto()">Agregar producto</button>
       </div>
     </section>
     <section class="card" style="margin-bottom:16px">
@@ -1017,10 +1248,41 @@
     calShowDetail: (id) => { state.calDetailId = id; render(); },
     calCloseDetail: () => { state.calDetailId = null; render(); },
     calOpenModal: (fecha, hora, barberoId) => {
-      state.manualForm = { cliente: '', tel: '', servicioId: null, barberoId: barberoId || (DATA.barberos[0] && DATA.barberos[0].id) || null, fecha: fecha || state.calSelectedDay || todayKey(), hora: hora || '10:00', customPrecio: '' };
+      state.reagendarId = null;
+      state.manualForm = { cliente: '', tel: '', email: '', servicioId: null, barberoId: barberoId || (DATA.barberos[0] && DATA.barberos[0].id) || null, fecha: fecha || state.calSelectedDay || todayKey(), hora: hora || '10:00', customPrecio: '', notas: '' };
       state.calModalOpen = true; render();
     },
-    calCloseModal: () => { state.calModalOpen = false; render(); },
+    calCloseModal: () => { state.calModalOpen = false; state.reagendarId = null; render(); },
+    calOpenReagendar: (id) => {
+      const t = DATA.turnos.find(x => x.id === id); if (!t) return;
+      state.reagendarId = id;
+      state.manualForm = { cliente: t.cliente_nombre, tel: t.cliente_tel || '', email: t.cliente_email || '', servicioId: t.servicio_id, barberoId: t.barbero_id, fecha: t.fecha, hora: minToStr(t.hora_min), customPrecio: t.precio, notas: t.notas_internas || '' };
+      state.calDetailId = null; state.calModalOpen = true; render();
+    },
+    calEditNotes: (id) => { state.calNotesEditId = id; render(); },
+    calSaveNotes: async (id) => {
+      const val = document.getElementById('calNotesInput').value;
+      await sb.from('turnos').update({ notas_internas: val }).eq('id', id);
+      state.calNotesEditId = null; showToast('Notas guardadas'); await refresh();
+    },
+    calOpenBlockModal: () => { state.calBlockModalOpen = true; render(); },
+    calCloseBlockModal: () => { state.calBlockModalOpen = false; render(); },
+    saveBlock: async () => {
+      const fecha = document.getElementById('bf_fecha').value, ini = document.getElementById('bf_ini').value,
+        fin = document.getElementById('bf_fin').value, barberoId = document.getElementById('bf_barbero').value,
+        motivo = document.getElementById('bf_motivo').value;
+      if (!fecha || !ini || !fin) { showToast('Completá fecha y horario'); return; }
+      const p1 = ini.split(':'), p2 = fin.split(':');
+      const iniMin = parseInt(p1[0], 10) * 60 + parseInt(p1[1], 10), finMin = parseInt(p2[0], 10) * 60 + parseInt(p2[1], 10);
+      if (finMin <= iniMin) { showToast('La hora de fin debe ser mayor a la de inicio'); return; }
+      await sb.from('bloqueos_horario').insert({ fecha, hora_inicio_min: iniMin, hora_fin_min: finMin, barbero_id: barberoId === 'all' ? null : barberoId, motivo: motivo || '' });
+      state.blockForm = { fecha: todayKey(), horaIni: '09:00', horaFin: '10:00', barberoId: 'all', motivo: '' };
+      showToast('Horario bloqueado'); await refresh();
+    },
+    deleteBlock: async (id) => {
+      await sb.from('bloqueos_horario').delete().eq('id', id);
+      showToast('Bloqueo eliminado'); await refresh();
+    },
     deleteTurno: async (id) => {
       if (!confirm('¿Eliminar este turno definitivamente? Esta acción no se puede deshacer.')) return;
       await sb.from('turnos').delete().eq('id', id);
@@ -1061,20 +1323,30 @@
     },
     addManual: async () => {
       const cliente = document.getElementById('mf_cliente').value, tel = document.getElementById('mf_tel').value,
+        email = document.getElementById('mf_email').value,
         servicioId = document.getElementById('mf_servicio').value, barberoId = document.getElementById('mf_barbero').value,
         fecha = document.getElementById('mf_fecha').value, hora = document.getElementById('mf_hora').value,
-        customPrecio = document.getElementById('mf_custom').value;
+        customPrecio = document.getElementById('mf_custom').value, notas = document.getElementById('mf_notas').value;
       if (!cliente.trim() || !fecha || !hora) { showToast('Completá cliente, fecha y hora'); return; }
       const b = barb(barberoId);
       let servicioNombre, precio, dur;
       if (servicioId === 'custom') { if (!customPrecio || isNaN(parseInt(customPrecio, 10))) { showToast('Poné el importe personalizado'); return; } servicioNombre = 'Otro importe'; precio = parseInt(customPrecio, 10); dur = 30; }
       else { const sv = servById(servicioId); servicioNombre = sv.nombre; precio = precioFinal(sv.precio_base, b.factor); dur = sv.duracion_min; }
       const parts = hora.split(':'); const horaMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-      await sb.from('clientes').upsert({ nombre: cliente.trim(), telefono: tel || '' }, { onConflict: 'nombre_key', ignoreDuplicates: true });
-      await sb.from('turnos').insert({ cliente_nombre: cliente.trim(), cliente_tel: tel || '', barbero_id: barberoId, servicio_id: servicioId === 'custom' ? null : servicioId, servicio_nombre: servicioNombre, precio, duracion_min: dur, fecha, hora_min: horaMin, estado: 'confirmado', origen: 'manual' });
-      state.manualForm = { cliente: '', tel: '', servicioId: null, barberoId: null, fecha: todayKey(), hora: '10:00', customPrecio: '' };
+      const dir = directory(); const existente = dir.find(c => c.key === cliente.trim().toLowerCase());
+      const clienteEmail = email.trim() || (existente ? existente.email : '') || '';
+      if (state.reagendarId) {
+        await sb.from('turnos').update({ cliente_tel: tel || '', cliente_email: clienteEmail, barbero_id: barberoId, servicio_id: servicioId === 'custom' ? null : servicioId, servicio_nombre: servicioNombre, precio, duracion_min: dur, fecha, hora_min: horaMin, notas_internas: notas || '' }).eq('id', state.reagendarId);
+        state.reagendarId = null;
+        showToast('Turno reagendado');
+      } else {
+        await sb.from('clientes').upsert({ nombre: cliente.trim(), telefono: tel || '', email: clienteEmail }, { onConflict: 'nombre_key', ignoreDuplicates: true });
+        await sb.from('turnos').insert({ cliente_nombre: cliente.trim(), cliente_tel: tel || '', cliente_email: clienteEmail, barbero_id: barberoId, servicio_id: servicioId === 'custom' ? null : servicioId, servicio_nombre: servicioNombre, precio, duracion_min: dur, fecha, hora_min: horaMin, estado: 'confirmado', origen: 'manual', notas_internas: notas || '' });
+        showToast('Turno agregado al calendario');
+      }
+      state.manualForm = { cliente: '', tel: '', email: '', servicioId: null, barberoId: null, fecha: todayKey(), hora: '10:00', customPrecio: '', notas: '' };
       state.calModalOpen = false;
-      showToast('Turno agregado al calendario'); await refresh();
+      await refresh();
     },
     canjear: async (key) => {
       const dir = directory(); const c = dir.find(x => x.key === key);
@@ -1114,8 +1386,12 @@
         if (nEl) await sb.from('servicios').update({ nombre: nEl.value, precio_base: parseFloat(pEl.value) || 0, duracion_min: parseInt(dEl.value, 10) || 0 }).eq('id', s.id);
       }
       for (const b of DATA.barberos) {
-        const fEl = document.getElementById('bf_' + b.id), eEl = document.getElementById('be_' + b.id);
-        if (fEl) await sb.from('barberos').update({ factor: parseFloat(fEl.value) || 1, email: eEl ? eEl.value.trim() : b.email }).eq('id', b.id);
+        const fEl = document.getElementById('bf_' + b.id), eEl = document.getElementById('be_' + b.id), cEl = document.getElementById('bc_' + b.id);
+        if (fEl) await sb.from('barberos').update({ factor: parseFloat(fEl.value) || 1, email: eEl ? eEl.value.trim() : b.email, comision_pct: cEl ? (parseFloat(cEl.value) || 0) : b.comision_pct }).eq('id', b.id);
+      }
+      for (const p of (DATA.productos || [])) {
+        const nEl = document.getElementById('pr_n_' + p.id), pEl = document.getElementById('pr_p_' + p.id);
+        if (nEl) await sb.from('productos').update({ nombre: nEl.value, precio: parseFloat(pEl.value) || 0 }).eq('id', p.id);
       }
       const openEl = document.getElementById('cfg_open'), closeEl = document.getElementById('cfg_close');
       if (openEl && closeEl) {
@@ -1123,6 +1399,32 @@
         await sb.from('config').update({ apertura_min: parseInt(op[0], 10) * 60 + parseInt(op[1], 10), cierre_min: parseInt(cl[0], 10) * 60 + parseInt(cl[1], 10) }).eq('id', 1);
       }
       showToast('Cambios guardados'); await refresh();
+    },
+    addProducto: async () => {
+      const nombre = document.getElementById('np_nombre').value.trim(), precio = parseFloat(document.getElementById('np_precio').value) || 0;
+      if (!nombre) { showToast('Poné un nombre'); return; }
+      await sb.from('productos').insert({ nombre, precio, orden: (DATA.productos || []).length + 1 });
+      showToast('Producto agregado'); await refresh();
+    },
+    deleteProducto: async (id) => {
+      if (!confirm('¿Quitar este producto del catálogo?')) return;
+      await sb.from('productos').update({ activo: false }).eq('id', id);
+      showToast('Producto quitado'); await refresh();
+    },
+    openVentaProducto: () => {
+      const productos = DATA.productos || [];
+      state.ventaForm = { productoId: productos[0] ? productos[0].id : null, cantidad: 1, cliente: '', barberoId: state.auth.role === 'barbero' ? state.auth.id : null };
+      state.ventaProductoOpen = true; render();
+    },
+    closeVentaProducto: () => { state.ventaProductoOpen = false; render(); },
+    saveVentaProducto: async () => {
+      const productoId = document.getElementById('vp_producto').value, cantidad = parseInt(document.getElementById('vp_cantidad').value, 10) || 1,
+        barberoId = document.getElementById('vp_barbero').value, cliente = document.getElementById('vp_cliente').value;
+      const prod = (DATA.productos || []).find(p => p.id === productoId);
+      if (!prod) { showToast('Elegí un producto'); return; }
+      await sb.from('ventas_productos').insert({ producto_id: prod.id, producto_nombre: prod.nombre, precio: prod.precio, cantidad, cliente_nombre: cliente.trim(), barbero_id: barberoId || null, fecha: todayKey() });
+      state.ventaProductoOpen = false;
+      showToast('Venta registrada'); await refresh();
     }
   };
 

@@ -50,19 +50,25 @@ function statusMeta(estado) { return STATUS_META[estado] || { label: estado, col
 
 // ---- Carga de datos base desde Supabase ----
 async function loadAllData() {
-  const [servicios, barberos, clientes, turnos, config] = await Promise.all([
+  const [servicios, barberos, clientes, turnos, config, bloqueos, productos, ventasProductos] = await Promise.all([
     sb.from('servicios').select('*').order('orden'),
     sb.from('barberos').select('*').eq('activo', true).order('orden'),
     sb.from('clientes').select('*'),
     sb.from('turnos').select('*').order('hora_min'),
-    sb.from('config').select('*').eq('id', 1).single()
+    sb.from('config').select('*').eq('id', 1).single(),
+    sb.from('bloqueos_horario').select('*'),
+    sb.from('productos').select('*').eq('activo', true).order('orden'),
+    sb.from('ventas_productos').select('*').order('fecha', { ascending: false })
   ]);
   return {
     servicios: servicios.data || [],
     barberos: barberos.data || [],
     clientes: clientes.data || [],
     turnos: turnos.data || [],
-    config: config.data || { apertura_min: 600, cierre_min: 1200, historico: [] }
+    config: config.data || { apertura_min: 600, cierre_min: 1200, historico: [] },
+    bloqueos: bloqueos.data || [],
+    productos: productos.data || [],
+    ventasProductos: ventasProductos.data || []
   };
 }
 
@@ -73,6 +79,9 @@ function subscribeRealtime(onChange) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'barberos' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'servicios' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'config' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bloqueos_horario' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas_productos' }, onChange)
     .subscribe();
 }
 
