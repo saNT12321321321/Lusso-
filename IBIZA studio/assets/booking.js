@@ -4,8 +4,10 @@
   let DATA = null; // {servicios, barberos, clientes, turnos, config}
   let state = {
     step: 1, servicioId: null, barberoSel: null, assigned: null,
-    dateKey: null, time: null, nombre: '', tel: ''
+    dateKey: null, time: null, nombre: '', tel: '', email: ''
   };
+  const N8N_WEBHOOK_URL = 'https://santiagogmnz.app.n8n.cloud/webhook/ibiza-turno-confirmado';
+  const CRM_LINK = 'https://ibiza-studio.netlify.app/crm';
 
   const app = document.getElementById('app');
 
@@ -84,20 +86,43 @@
       const clash = (freshTurnos || []).some(t => state.time < (t.hora_min + t.duracion_min) && (state.time + sv.duracion_min) > t.hora_min);
       if (clash) { showToast('Ese horario se acaba de ocupar. Elegí otro.'); state.step = 3; state.time = null; render(); return; }
 
-      await sb.from('clientes').upsert({ nombre: state.nombre.trim(), telefono: state.tel.trim() }, { onConflict: 'nombre_key', ignoreDuplicates: true });
+      await sb.from('clientes').upsert({ nombre: state.nombre.trim(), telefono: state.tel.trim(), email: state.email.trim() }, { onConflict: 'nombre_key', ignoreDuplicates: true });
       const { error } = await sb.from('turnos').insert({
         cliente_nombre: state.nombre.trim(), cliente_tel: state.tel.trim(), barbero_id: b.id,
         servicio_id: sv.id, servicio_nombre: sv.nombre, precio, duracion_min: sv.duracion_min,
         fecha: state.dateKey, hora_min: state.time, estado: 'confirmado', origen: 'online'
       });
       if (error) throw error;
+      notifyTurnoConfirmado(sv, b, precio);
       state.step = 5; render();
     } catch (e) {
       showToast('No se pudo guardar el turno. Probá de nuevo.');
       btn.disabled = false; btn.textContent = 'Confirmar turno';
     }
   }
-  function reset() { state = { step: 1, servicioId: null, barberoSel: null, assigned: null, dateKey: null, time: null, nombre: '', tel: '' }; render(); }
+  function reset() { state = { step: 1, servicioId: null, barberoSel: null, assigned: null, dateKey: null, time: null, nombre: '', tel: '', email: '' }; render(); }
+
+  function notifyTurnoConfirmado(sv, b, precio) {
+    // Fire-and-forget: avisa al barbero y confirma al cliente por email vía n8n. No bloquea la reserva si falla.
+    try {
+      fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_nombre: state.nombre.trim(),
+          cliente_tel: state.tel.trim(),
+          cliente_email: state.email.trim(),
+          barbero_nombre: b.alias,
+          barbero_email: b.email || '',
+          servicio_nombre: sv.nombre,
+          fecha: dayLabel(state.dateKey),
+          hora: minToStr(state.time),
+          precio,
+          crm_link: CRM_LINK
+        })
+      }).catch(() => {});
+    } catch (e) {}
+  }
 
   function progressBar() {
     const segs = [0, 1, 2, 3].map(i => `<i style="flex:1;height:4px;border-radius:4px;background:${i < state.step ? ACCENT : '#211a12'};display:block"></i>`).join('');
@@ -199,6 +224,9 @@
       <div style="margin-bottom:14px"><label style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px">Teléfono</label>
         <input class="input" type="tel" placeholder="Ej. 11 5541 2233" value="${esc(state.tel)}" oninput="Booking.setField('tel', this.value)">
         <div style="font-size:11px;color:var(--muted2);margin-top:5px">Lo usamos para recordarte el turno.</div></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px">Email <span style="color:var(--muted2);font-weight:500">(opcional)</span></label>
+        <input class="input" type="email" placeholder="tu@email.com" value="${esc(state.email)}" oninput="Booking.setField('email', this.value)">
+        <div style="font-size:11px;color:var(--muted2);margin-top:5px">Te mandamos la confirmación por acá.</div></div>
       ${footerCta(valid)}`;
   }
   function footerCta(valid) {

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IBIZA studio — Previsualización (solo local, no se sube a producción)</title>
+<link rel="stylesheet" href="assets/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+  /* ============================================================
+     MOCK de Supabase — SOLO para esta previsualización local.
+     Usa exactamente los mismos assets/common.js y assets/crm.js
+     que van a producción; lo único falso son los datos y la conexión.
+     Este archivo NO se sube a GitHub/Netlify.
+  ============================================================ */
+  const MOCK_DB = {
+    servicios: [
+      { id: 'corte', nombre: 'Corte clásico', precio_base: 6000, duracion_min: 45, orden: 1 },
+      { id: 'combo', nombre: 'Corte + barba', precio_base: 8500, duracion_min: 60, orden: 2 },
+      { id: 'barba', nombre: 'Barba', precio_base: 3500, duracion_min: 30, orden: 3 },
+      { id: 'color', nombre: 'Coloración', precio_base: 11000, duracion_min: 75, orden: 4 },
+      { id: 'fade', nombre: 'Fade premium', precio_base: 7500, duracion_min: 50, orden: 5 }
+    ],
+    barberos: [
+      { id: 'nico', nombre: 'Nicolás Duarte', alias: 'Nico', especialidad: 'Fades & clásico', factor: 1.15, color: '#c99a3f', activo: true, orden: 1, email: 'nico@ibizastudio.com' },
+      { id: 'fede', nombre: 'Federico Ríos', alias: 'Fede', especialidad: 'Barba & color', factor: 1, color: '#4f7f9c', activo: true, orden: 2, email: '' },
+      { id: 'ale', nombre: 'Alejo Cabrera', alias: 'Ale', especialidad: 'Estilo clásico', factor: 0.95, color: '#4f8865', activo: true, orden: 3, email: '' },
+      { id: 'bruno', nombre: 'Bruno Aquino', alias: 'Bruno', especialidad: 'Fade & diseño', factor: 1.05, color: '#93708a', activo: true, orden: 4, email: '' }
+    ],
+    clientes: [
+      { id: 'c1', nombre: 'Matías Gómez', nombre_key: 'matías gómez', telefono: '1155551234', email: '', cumpleanos: '', notas: '', tags: ['Recurrente'], puntos: 6 },
+      { id: 'c2', nombre: 'Rodrigo Paz', nombre_key: 'rodrigo paz', telefono: '1155552345', email: '', cumpleanos: '', notas: '', tags: [], puntos: 3 },
+      { id: 'c3', nombre: 'Sofía Ríos', nombre_key: 'sofía ríos', telefono: '1155553456', email: '', cumpleanos: '', notas: '', tags: ['VIP'], puntos: 12 },
+      { id: 'c4', nombre: 'Tomás Ferreyra', nombre_key: 'tomás ferreyra', telefono: '1155554567', email: '', cumpleanos: '', notas: '', tags: ['Nuevo'], puntos: 0 }
+    ],
+    turnos: [],
+    config: [{ id: 1, apertura_min: 540, cierre_min: 1260, historico: [] }]
+  };
+
+  (function seedTurnos() {
+    const clientes = ['Matías G.', 'Rodrigo P.', 'Juan L.', 'Camila S.', 'Tomás F.', 'Sofía R.', 'Bruno A.', 'Lucía F.', 'Diego O.', 'Ezequiel V.', 'Carla N.', 'Franco M.'];
+    let seed = 11, id = 1;
+    function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+    function keyOf(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    const today = new Date();
+    for (let dOff = -6; dOff <= 20; dOff++) {
+      const day = new Date(today); day.setDate(day.getDate() + dOff);
+      if (day.getDay() === 0) continue;
+      const n = 3 + Math.floor(rnd() * 5);
+      for (let i = 0; i < n; i++) {
+        const b = MOCK_DB.barberos[Math.floor(rnd() * MOCK_DB.barberos.length)];
+        const sv = MOCK_DB.servicios[Math.floor(rnd() * MOCK_DB.servicios.length)];
+        const hour = 9 + Math.floor(rnd() * 11);
+        const min = rnd() < 0.5 ? 0 : 30;
+        let estado = 'confirmado';
+        if (dOff < 0) { const r = rnd(); estado = r < 0.1 ? 'no-show' : (r < 0.18 ? 'cancelado' : 'completado'); }
+        MOCK_DB.turnos.push({
+          id: id++, cliente_nombre: clientes[Math.floor(rnd() * clientes.length)], cliente_tel: '11555' + Math.floor(10000 + rnd() * 89999),
+          barbero_id: b.id, servicio_id: sv.id, servicio_nombre: sv.nombre,
+          precio: Math.round((sv.precio_base * b.factor) / 500) * 500, duracion_min: sv.duracion_min,
+          fecha: keyOf(day), hora_min: hour * 60 + min, estado, origen: dOff % 3 === 0 ? 'online' : 'manual'
+        });
+      }
+    }
+  })();
+
+  function mockChain(table) {
+    let rows = MOCK_DB[table].slice();
+    let single = false, pending = null;
+    const b = {
+      select() { return b; }, order() { return b; },
+      eq(f, v) { rows = rows.filter(r => r[f] === v); return b; },
+      neq(f, v) { rows = rows.filter(r => r[f] !== v); return b; },
+      single() { single = true; return b; },
+      insert(payload) { pending = { type: 'insert', payload }; return b; },
+      update(payload) { pending = { type: 'update', payload }; return b; },
+      upsert(payload) { pending = { type: 'upsert', payload }; return b; },
+      delete() { pending = { type: 'delete' }; return b; },
+      then(resolve) {
+        if (pending) {
+          if (pending.type === 'insert') {
+            const row = Object.assign({}, pending.payload);
+            if (table === 'turnos') row.id = Math.floor(Date.now() + Math.random() * 1000);
+            if (table === 'clientes') row.id = 'c' + Math.floor(Math.random() * 100000);
+            MOCK_DB[table].push(row);
+            resolve({ data: [row], error: null });
+          } else if (pending.type === 'update') {
+            rows.forEach(r => Object.assign(r, pending.payload));
+            resolve({ data: rows, error: null });
+          } else if (pending.type === 'upsert') {
+            const key = (pending.payload.nombre || '').trim().toLowerCase();
+            const exists = MOCK_DB[table].find(r => (r.nombre || '').trim().toLowerCase() === key);
+            if (!exists) { const row = Object.assign({ id: 'c' + Math.floor(Math.random() * 100000) }, pending.payload); MOCK_DB[table].push(row); }
+            resolve({ data: [pending.payload], error: null });
+          } else if (pending.type === 'delete') {
+            rows.forEach(r => { const idx = MOCK_DB[table].indexOf(r); if (idx >= 0) MOCK_DB[table].splice(idx, 1); });
+            resolve({ data: null, error: null });
+          }
+          return;
+        }
+        resolve({ data: single ? (rows[0] || null) : rows, error: null });
+      }
+    };
+    return b;
+  }
+
+  window.supabase = {
+    createClient: function () {
+      return {
+        from: function (table) { return mockChain(table); },
+        channel: function () { return { on: function () { return this; }, subscribe: function () { return this; } }; },
+        rpc: function () { return Promise.resolve({ data: true, error: null }); }
+      };
+    }
+  };
+
+  localStorage.setItem('ibiza_auth', JSON.stringify({ role: 'admin' }));
+</script>
+</head>
+<body>
+<div id="app" style="min-height:100vh;display:flex;align-items:center;justify-content:center">
+  <div class="spinner"></div>
+</div>
+<div style="position:fixed;bottom:14px;right:14px;z-index:999;background:#a85142;color:#fff;font:700 11px 'Manrope',sans-serif;padding:8px 14px;border-radius:20px;box-shadow:0 8px 20px rgba(0,0,0,0.4)">Previsualización local — datos de prueba</div>
+<script src="assets/common.js"></script>
+<script src="assets/crm.js"></script>
+<script>
+  // Aterriza directo en Panel general (ya fusionado con Métricas) para revisar el orden del menú y la fusión.
+  window.addEventListener('load', function () {
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (window.Crm && document.getElementById('app').innerHTML.indexOf('spinner') === -1) {
+        clearInterval(iv);
+        Crm.selectTab('gerente');
+      } else if (tries > 100) { clearInterval(iv); }
+    }, 50);
+  });
+</script>
+</body>
+</html>
