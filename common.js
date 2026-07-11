@@ -41,12 +41,12 @@ function daysToBirthday(mmddStr, ref) {
 }
 
 const STATUS_META = {
-  confirmado: { label: 'Confirmado', color: 'var(--blue)', bg: 'rgba(79,127,156,0.16)' },
-  completado: { label: 'Completado', color: 'var(--green)', bg: 'rgba(79,136,101,0.16)' },
-  cancelado: { label: 'Cancelado', color: 'var(--red)', bg: 'rgba(168,81,66,0.16)' },
-  'no-show': { label: 'No-show', color: 'var(--purple)', bg: 'rgba(147,112,138,0.16)' }
+  confirmado: { label: 'Confirmado', color: 'var(--blue)', bg: 'rgba(8,145,178,0.13)' },
+  completado: { label: 'Completado', color: 'var(--green)', bg: 'rgba(22,163,74,0.13)' },
+  cancelado: { label: 'Cancelado', color: 'var(--red)', bg: 'rgba(220,38,38,0.11)' },
+  'no-show': { label: 'No-show', color: 'var(--purple)', bg: 'rgba(147,51,234,0.11)' }
 };
-function statusMeta(estado) { return STATUS_META[estado] || { label: estado, color: 'var(--muted)', bg: 'rgba(169,152,127,0.16)' }; }
+function statusMeta(estado) { return STATUS_META[estado] || { label: estado, color: 'var(--muted)', bg: 'rgba(100,116,139,0.13)' }; }
 
 // ---- Carga de datos base desde Supabase ----
 async function loadAllData() {

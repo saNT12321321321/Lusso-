@@ -1,6 +1,6 @@
 /* IBIZA studio — Panel de gestión (CRM), conectado a Supabase en tiempo real */
 (function () {
-  const PALETTE = ['#c99a3f', '#4f7f9c', '#4f8865', '#93708a', '#4f9c94', '#6b6f9c', '#b3703f', '#7c9c4f'];
+  const PALETTE = ['#2563eb', '#4f7f9c', '#4f8865', '#93708a', '#4f9c94', '#6b6f9c', '#b3703f', '#7c9c4f'];
   function jsStr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
   const app = document.getElementById('app');
   let DATA = null;
@@ -19,7 +19,7 @@
 
   try { const saved = JSON.parse(localStorage.getItem('ibiza_auth') || 'null'); if (saved) state.auth = saved; } catch (e) { }
 
-  function barb(id) { return DATA.barberos.find(b => b.id === id) || DATA.barberos[0] || { id: '', alias: '?', color: '#c99a3f', especialidad: '' }; }
+  function barb(id) { return DATA.barberos.find(b => b.id === id) || DATA.barberos[0] || { id: '', alias: '?', color: '#2563eb', especialidad: '' }; }
   function servById(id) { return DATA.servicios.find(s => s.id === id) || DATA.servicios[0]; }
   function monthBounds(ref) { const d = new Date(ref); const first = keyOf(new Date(d.getFullYear(), d.getMonth(), 1)); const last = keyOf(new Date(d.getFullYear(), d.getMonth() + 1, 0)); return { first, last }; }
   function inMonth(fecha, ref) { const { first, last } = monthBounds(ref || new Date()); return fecha >= first && fecha <= last; }
@@ -177,7 +177,7 @@
         data: {
           labels: curSeries.map(d => d.label),
           datasets: [
-            { label: 'Período actual', data: curSeries.map(d => d.revenue), borderColor: '#c99a3f', backgroundColor: 'rgba(201,154,63,0.14)', tension: 0.35, fill: true, pointRadius: 2, pointBackgroundColor: '#c99a3f' },
+            { label: 'Período actual', data: curSeries.map(d => d.revenue), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.14)', tension: 0.35, fill: true, pointRadius: 2, pointBackgroundColor: '#2563eb' },
             { label: 'Período anterior', data: prevSeries.map(d => d.revenue), borderColor: '#a9987f', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0 }
           ]
         },
@@ -222,7 +222,7 @@
       const data = top.map(x => x.val).concat(otros > 0 ? [otros] : []);
       metricsCharts.client = new Chart(clientCanvas, {
         type: 'doughnut',
-        data: { labels: labels.length ? labels : ['Sin datos'], datasets: [{ data: data.length ? data : [1], backgroundColor: ['#c99a3f', '#4f7f9c', '#4f8865', '#93708a', '#b3703f', '#c9c0ae'], borderColor: '#fff', borderWidth: 2 }] },
+        data: { labels: labels.length ? labels : ['Sin datos'], datasets: [{ data: data.length ? data : [1], backgroundColor: ['#2563eb', '#4f7f9c', '#4f8865', '#93708a', '#b3703f', '#c9c0ae'], borderColor: '#fff', borderWidth: 2 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#5a4f40', font: { size: 10.5 }, boxWidth: 10 } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtMoney.format(ctx.parsed) } } } }
       });
     }
@@ -232,7 +232,7 @@
       const svData = Object.values(cur.porServicio).sort((a, b) => b.revenue - a.revenue);
       metricsCharts.service = new Chart(serviceCanvas, {
         type: 'doughnut',
-        data: { labels: svData.length ? svData.map(s => s.nombre) : ['Sin datos'], datasets: [{ data: svData.length ? svData.map(s => s.revenue) : [1], backgroundColor: ['#c99a3f', '#4f7f9c', '#4f8865', '#93708a', '#4f9c94', '#b3703f', '#6b6f9c'], borderColor: '#fff', borderWidth: 2 }] },
+        data: { labels: svData.length ? svData.map(s => s.nombre) : ['Sin datos'], datasets: [{ data: svData.length ? svData.map(s => s.revenue) : [1], backgroundColor: ['#2563eb', '#4f7f9c', '#4f8865', '#93708a', '#4f9c94', '#b3703f', '#6b6f9c'], borderColor: '#fff', borderWidth: 2 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#5a4f40', font: { size: 10.5 }, boxWidth: 10 } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtMoney.format(ctx.parsed) } } } }
       });
     }
@@ -243,7 +243,7 @@
     const color = isUp ? 'var(--green)' : 'var(--red)';
     const arrow = isUp ? '▲' : '▼';
     return `<div class="card" style="padding:18px">
-      <div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;background:rgba(201,154,63,0.16);color:var(--gold);font-size:15px">${icon}</div>
+      <div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;background:rgba(37,99,235,0.16);color:var(--gold);font-size:15px">${icon}</div>
       <div style="font-family:'Manrope',sans-serif;font-weight:800;font-size:25px;letter-spacing:-0.3px">${fmt(curr)}</div>
       <div style="font-size:13px;font-weight:700;margin-top:4px">${label}</div>
       <div style="font-size:12px;font-weight:700;margin-top:6px;color:${color};display:flex;align-items:center;gap:4px;flex-wrap:wrap">${arrow} ${Math.abs(change)}% <span style="color:var(--muted2);font-weight:500">vs. mes anterior (${fmt(prev)})</span></div>
@@ -287,7 +287,7 @@
     const hist = (DATA.config.historico || []).slice(); hist.push(cur.revenue);
     const refD = new Date(); const trendLabels = []; for (let i = 5; i >= 0; i--) { const d = new Date(refD.getFullYear(), refD.getMonth() - i, 1); trendLabels.push(MM[d.getMonth()]); }
     const maxH = Math.max(...hist, 1);
-    const trendBars = hist.map((v, i) => ({ height: Math.max(4, Math.round(v / maxH * 100)), label: trendLabels[i] || '', color: i === hist.length - 1 ? 'var(--gold)' : 'rgba(201,154,63,0.4)' }));
+    const trendBars = hist.map((v, i) => ({ height: Math.max(4, Math.round(v / maxH * 100)), label: trendLabels[i] || '', color: i === hist.length - 1 ? 'var(--gold)' : 'rgba(37,99,235,0.4)' }));
     return `
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Comparando <b style="color:var(--text)">${cur.label}</b> contra <b style="color:var(--text)">${prev.label}</b></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px">${cards}</div>
@@ -318,7 +318,7 @@
     </section>`;
   }
   function rankRowView(i, c, valStr, pct, colorOverride) {
-    const bColor = colorOverride || (c.barbero ? barb(c.barbero).color : '#c99a3f');
+    const bColor = colorOverride || (c.barbero ? barb(c.barbero).color : '#2563eb');
     return { rank: i + 1, nombre: c.nombre, ini: initials(c.nombre), val: valStr, color: bColor, barWidth: Math.max(6, Math.round(pct * 100)) };
   }
   function agendaItemView(a, opts) {
@@ -386,24 +386,24 @@
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
       <div style="width:100%;max-width:420px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:0 30px 80px rgba(0,0,0,0.5)">
         <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:24px">
-          <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(160deg,var(--gold-soft),#a97c2c);display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:22px">✂️</div>
+          <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(160deg,var(--gold-soft),#1d4ed8);display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:22px">✂️</div>
           <div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:21px">IBIZA studio</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">Iniciá sesión en el panel de gestión</div>
         </div>
         <div style="display:flex;gap:4px;background:var(--panel2);padding:4px;border-radius:11px;border:1px solid var(--border);margin-bottom:20px">
-          <button onclick="Crm.setLoginMode('admin')" style="flex:1;border:none;padding:9px;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;background:${isAdmin ? 'var(--gold)' : 'transparent'};color:${isAdmin ? '#17130f' : 'var(--muted)'}">Administrador</button>
-          <button onclick="Crm.setLoginMode('barbero')" style="flex:1;border:none;padding:9px;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;background:${!isAdmin ? 'var(--gold)' : 'transparent'};color:${!isAdmin ? '#17130f' : 'var(--muted)'}">Soy barbero</button>
+          <button onclick="Crm.setLoginMode('admin')" style="flex:1;border:none;padding:9px;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;background:${isAdmin ? 'var(--gold)' : 'transparent'};color:${isAdmin ? '#ffffff' : 'var(--muted)'}">Administrador</button>
+          <button onclick="Crm.setLoginMode('barbero')" style="flex:1;border:none;padding:9px;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;background:${!isAdmin ? 'var(--gold)' : 'transparent'};color:${!isAdmin ? '#ffffff' : 'var(--muted)'}">Soy barbero</button>
         </div>
         ${isAdmin ? `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div><label style="display:block;font-size:11.5px;font-weight:600;margin-bottom:6px;color:var(--muted)">Usuario</label><input class="input" value="${esc(state.loginUser)}" oninput="Crm.setLoginField('loginUser',this.value)"></div>
           <div><label style="display:block;font-size:11.5px;font-weight:600;margin-bottom:6px;color:var(--muted)">Contraseña</label><input class="input" type="password" value="${esc(state.loginPass)}" oninput="Crm.setLoginField('loginPass',this.value)"></div>
-          <button id="adminSubmitBtn" class="btn" ${adminValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginAdmin()" style="margin-top:6px;${adminValid ? 'background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar como administrador'}</button>
+          <button id="adminSubmitBtn" class="btn" ${adminValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginAdmin()" style="margin-top:6px;${adminValid ? 'background:linear-gradient(160deg,var(--gold-soft),#1d4ed8);color:#ffffff' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar como administrador'}</button>
           <div style="font-size:10.5px;color:var(--muted2);text-align:center">Primera vez: la clave que escribas queda guardada para siempre.</div>
         </div>` : `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">${barberBtns}</div>
         ${state.loginBarberId ? `<div style="margin-bottom:12px"><label style="display:block;font-size:11.5px;font-weight:600;margin-bottom:6px;color:var(--muted)">PIN</label><input class="input" type="password" inputmode="numeric" value="${esc(state.loginPin)}" oninput="Crm.setLoginField('loginPin',this.value)"></div>` : ''}
-        <button id="barberoSubmitBtn" class="btn" ${barberoValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginBarbero()" style="width:100%;${barberoValid ? 'background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar'}</button>
+        <button id="barberoSubmitBtn" class="btn" ${barberoValid && !state.loginBusy ? '' : 'disabled'} onclick="Crm.loginBarbero()" style="width:100%;${barberoValid ? 'background:linear-gradient(160deg,var(--gold-soft),#1d4ed8);color:#ffffff' : ''}">${state.loginBusy ? 'Entrando...' : 'Ingresar'}</button>
         <div style="font-size:10.5px;color:var(--muted2);text-align:center;margin-top:10px">Primera vez: el PIN que escribas queda guardado para siempre.</div>`}
       </div>
     </div>`;
@@ -414,32 +414,32 @@
     const auth = state.auth, isAdmin = auth.role === 'admin', myId = auth.role === 'barbero' ? auth.id : null;
     const navBarbers = DATA.barberos.map(b => {
       const isOn = state.tab === b.id;
-      return `<button onclick="Crm.selectTab('${b.id}')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:8px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${isOn ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${isOn ? 'var(--text)' : 'var(--muted)'}">
+      return `<button onclick="Crm.selectTab('${b.id}')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:8px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${isOn ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${isOn ? 'var(--text)' : 'var(--muted)'}">
         <span style="width:22px;height:22px;flex:none;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:600;font-size:9px;background:${tint(b.color, 0.16)};color:${b.color}">${initials(b.alias)}</span>${esc(b.alias)}
       </button>`;
     }).join('');
     const manageItems = [
       { id: 'pipeline', label: 'Pipeline' }, { id: 'clientes', label: 'Clientes' }
-    ].map(it => { const isOn = state.tab === it.id; return `<button onclick="Crm.selectTab('${it.id}')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${isOn ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${isOn ? 'var(--text)' : 'var(--muted)'}">${it.label}</button>`; }).join('');
+    ].map(it => { const isOn = state.tab === it.id; return `<button onclick="Crm.selectTab('${it.id}')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${isOn ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${isOn ? 'var(--text)' : 'var(--muted)'}">${it.label}</button>`; }).join('');
     const authIni = isAdmin ? 'AD' : initials(barb(myId).alias);
     const authLabel = isAdmin ? 'Administrador' : barb(myId).alias;
     const authColor = isAdmin ? 'var(--gold)' : barb(myId).color;
     return `<aside class="crm-sidebar${state.sidebarOpen ? ' open' : ''}" id="crmSidebar">
       <div style="display:flex;align-items:center;gap:11px;padding:4px 6px 22px">
-        <div style="width:40px;height:40px;flex:none;border-radius:11px;background:linear-gradient(160deg,var(--gold-soft),#a97c2c);display:flex;align-items:center;justify-content:center;font-size:18px">✂️</div>
+        <div style="width:40px;height:40px;flex:none;border-radius:11px;background:linear-gradient(160deg,var(--gold-soft),#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:18px">✂️</div>
         <div style="flex:1;min-width:0"><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:16.5px">IBIZA studio</div><div style="font-size:11px;color:var(--muted2);font-weight:500">Panel de gestión</div></div>
         <button onclick="Crm.closeSidebar()" style="display:none" class="crm-burger crm-sidebar-close">✕</button>
       </div>
-      ${isAdmin ? `<button onclick="Crm.selectTab('gerente')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === 'gerente' ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === 'gerente' ? 'var(--text)' : 'var(--muted)'}">Panel general</button>
-      <button onclick="Crm.selectTab('calendario')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:14px;background:${state.tab === 'calendario' ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === 'calendario' ? 'var(--text)' : 'var(--muted)'}">Calendario</button>
+      ${isAdmin ? `<button onclick="Crm.selectTab('gerente')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === 'gerente' ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${state.tab === 'gerente' ? 'var(--text)' : 'var(--muted)'}">Panel general</button>
+      <button onclick="Crm.selectTab('calendario')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:14px;background:${state.tab === 'calendario' ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${state.tab === 'calendario' ? 'var(--text)' : 'var(--muted)'}">Calendario</button>
       <div style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted2);padding:6px 12px 7px">Gestión</div>${manageItems}
       <div style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted2);padding:16px 12px 7px">Barberos</div>${navBarbers}
       <div style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted2);padding:16px 12px 7px">Sistema</div>
-      <button onclick="Crm.selectTab('config')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;background:${state.tab === 'config' ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === 'config' ? 'var(--text)' : 'var(--muted)'}">Configuración</button>` : `
-      <button onclick="Crm.selectTab('${myId}')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === myId ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === myId ? 'var(--text)' : 'var(--muted)'}">Mi Panel</button>
-      <button onclick="Crm.selectTab('calendario')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === 'calendario' ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === 'calendario' ? 'var(--text)' : 'var(--muted)'}">Calendario</button>
-      <button onclick="Crm.selectTab('pipeline')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === 'pipeline' ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === 'pipeline' ? 'var(--text)' : 'var(--muted)'}">Mi Pipeline</button>
-      <button onclick="Crm.selectTab('clientes')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;background:${state.tab === 'clientes' ? 'rgba(201,154,63,0.14)' : 'transparent'};color:${state.tab === 'clientes' ? 'var(--text)' : 'var(--muted)'}">Clientes</button>`}
+      <button onclick="Crm.selectTab('config')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;background:${state.tab === 'config' ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${state.tab === 'config' ? 'var(--text)' : 'var(--muted)'}">Configuración</button>` : `
+      <button onclick="Crm.selectTab('${myId}')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === myId ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${state.tab === myId ? 'var(--text)' : 'var(--muted)'}">Mi Panel</button>
+      <button onclick="Crm.selectTab('calendario')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === 'calendario' ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${state.tab === 'calendario' ? 'var(--text)' : 'var(--muted)'}">Calendario</button>
+      <button onclick="Crm.selectTab('pipeline')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${state.tab === 'pipeline' ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${state.tab === 'pipeline' ? 'var(--text)' : 'var(--muted)'}">Mi Pipeline</button>
+      <button onclick="Crm.selectTab('clientes')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;background:${state.tab === 'clientes' ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${state.tab === 'clientes' ? 'var(--text)' : 'var(--muted)'}">Clientes</button>`}
       <div style="flex:1"></div>
       <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--panel2);border:1px solid var(--border)">
         <div style="width:24px;height:24px;flex:none;border-radius:7px;background:${tint(authColor, 0.16)};display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:${authColor}">${authIni}</div>
@@ -451,7 +451,7 @@
 
   function kpiCard(icon, value, label, sub) {
     return `<div class="card" style="padding:18px">
-      <div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;background:rgba(201,154,63,0.16);color:var(--gold);font-size:15px">${icon}</div>
+      <div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;background:rgba(37,99,235,0.16);color:var(--gold);font-size:15px">${icon}</div>
       <div style="font-family:'Manrope',sans-serif;font-weight:800;font-size:25px;letter-spacing:-0.3px">${value}</div>
       <div style="font-size:13px;font-weight:700;margin-top:4px">${label}</div>
       <div style="font-size:11.5px;color:var(--muted2);margin-top:1px">${sub}</div>
@@ -550,7 +550,7 @@
     const cancel = own.filter(a => a.estado === 'cancelado').length, noshow = own.filter(a => a.estado === 'no-show').length;
     const days = groupByDay(ownFuture, { editable: true });
     return `<div style="display:flex;align-items:center;gap:18px;background:linear-gradient(120deg,${tint(b.color, 0.16)},var(--panel) 75%);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin-bottom:18px">
-      <div style="width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:700;font-size:21px;color:#17130f;flex:none;background:${b.color}">${initials(b.alias)}</div>
+      <div style="width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:700;font-size:21px;color:#ffffff;flex:none;background:${b.color}">${initials(b.alias)}</div>
       <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:20px">${esc(b.nombre)}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">${esc(b.especialidad)} · ${hoy} turno${hoy === 1 ? '' : 's'} hoy</div></div>
       <div style="margin-left:auto;text-align:right"><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:27px;color:${b.color}">${Math.round(s.share * 100)}%</div><div style="font-size:10.5px;color:var(--muted2)">de la facturación del local</div></div>
     </div>
@@ -580,7 +580,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px"><span style="font-weight:800;font-size:12.5px">${minToStr(a.hora_min)}</span><span style="font-size:11.5px;font-weight:700;color:var(--muted)">${fmtMoney.format(a.precio)}</span></div>
       <div style="font-size:12.5px;font-weight:700;margin-top:4px">${esc(a.cliente_nombre)}</div><div style="font-size:11px;color:var(--muted2)">${esc(a.servicio_nombre)}</div>
       <div style="font-size:10.5px;font-weight:600;display:flex;align-items:center;gap:5px;margin-top:5px;color:${b.color}"><span style="width:6px;height:6px;border-radius:50%;background:${b.color}"></span>${esc(b.alias)}</div>
-      ${a.estado === 'confirmado' ? `<button onclick="Crm.setEstado(${a.id},'completado')" style="width:100%;margin-top:9px;border:none;border-radius:8px;padding:8px;font-weight:800;font-size:11.5px;cursor:pointer;background:var(--green);color:#0e140f">✓ Marcar como finalizado</button>
+      ${a.estado === 'confirmado' ? `<button onclick="Crm.setEstado(${a.id},'completado')" style="width:100%;margin-top:9px;border:none;border-radius:8px;padding:8px;font-weight:800;font-size:11.5px;cursor:pointer;background:var(--green);color:#ffffff">✓ Marcar como finalizado</button>
         <div style="display:flex;gap:5px;margin-top:5px"><button onclick="Crm.setEstado(${a.id},'no-show')" style="flex:1;font-size:10px;font-weight:700;padding:5px;border-radius:7px;border:1px solid var(--border-strong);background:var(--panel);color:var(--purple);cursor:pointer">No-show</button><button onclick="Crm.setEstado(${a.id},'cancelado')" style="flex:1;font-size:10px;font-weight:700;padding:5px;border-radius:7px;border:1px solid var(--border-strong);background:var(--panel);color:var(--red);cursor:pointer">Cancelar</button></div>` : ''}
     </div>`; }
     const cols = [
@@ -592,7 +592,7 @@
     </div>`; }).join('');
     const chips = isAdmin ? [{ id: 'all', label: 'Todos' }, ...DATA.barberos.map(b => ({ id: b.id, label: b.alias, color: b.color }))].map(ch => {
       const isOn = state.pipelineBarberFilter === ch.id;
-      return `<button onclick="Crm.setPipelineFilter('${ch.id}')" style="font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:20px;cursor:pointer;border:1px solid ${isOn ? (ch.color || 'var(--gold)') : 'var(--border-strong)'};background:${isOn ? tint(ch.color || '#c99a3f', 0.16) : 'var(--panel2)'};color:${isOn ? (ch.color || 'var(--gold)') : 'var(--muted)'}">${ch.label}</button>`;
+      return `<button onclick="Crm.setPipelineFilter('${ch.id}')" style="font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:20px;cursor:pointer;border:1px solid ${isOn ? (ch.color || 'var(--gold)') : 'var(--border-strong)'};background:${isOn ? tint(ch.color || '#2563eb', 0.16) : 'var(--panel2)'};color:${isOn ? (ch.color || 'var(--gold)') : 'var(--muted)'}">${ch.label}</button>`;
     }).join('') : '';
     return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
       <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:17px">${dayLabel(today)}</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">${dayAll.length} turno${dayAll.length === 1 ? '' : 's'} hoy</div></div>
@@ -609,8 +609,8 @@
     const allTags = ['VIP', 'Recurrente', 'Nuevo', 'Riesgo de fuga'];
     const rows = filtered.map((c, idx) => {
       const isOpen = state.openClientKey === c.key;
-      const bb = c.barbero ? barb(c.barbero) : { tint: 'rgba(201,154,63,0.16)', color: 'var(--gold)' };
-      const rowBg = idx % 2 === 0 ? '#1c1610' : '#201811';
+      const bb = c.barbero ? barb(c.barbero) : { tint: 'rgba(37,99,235,0.16)', color: 'var(--gold)' };
+      const rowBg = idx % 2 === 0 ? 'var(--panel)' : 'var(--panel2)';
       return `<div style="background:${rowBg};border:1px solid var(--border-strong);border-radius:13px;padding:14px 16px">
         <div onclick="Crm.toggleClient('${jsStr(c.key)}')" style="display:flex;align-items:center;gap:12px;cursor:pointer">
           <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;background:${tint(bb.color, 0.16)};color:${bb.color}">${initials(c.nombre)}</div>
@@ -623,7 +623,7 @@
     return `<div style="margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <input id="clientSearchInput" class="input" style="flex:1;min-width:240px;max-width:420px" placeholder="Buscar cliente por nombre..." value="${esc(state.clientSearch)}" oninput="Crm.searchClients(this.value)">
       <span id="clientCountSpan" style="font-size:12px;font-weight:600;color:var(--muted)">${filtered.length} cliente${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'}</span>
-      <button onclick="Crm.toggleAddClient()" style="margin-left:auto;font-size:12.5px;font-weight:800;padding:10px 16px;border-radius:11px;border:none;cursor:pointer;background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f">+ Agregar cliente</button>
+      <button onclick="Crm.toggleAddClient()" style="margin-left:auto;font-size:12.5px;font-weight:800;padding:10px 16px;border-radius:11px;border:none;cursor:pointer;background:linear-gradient(160deg,var(--gold-soft),#1d4ed8);color:#ffffff">+ Agregar cliente</button>
     </div>
     ${state.showAddClient ? `<div class="card grid-3" style="margin-bottom:14px">
       <input class="input" placeholder="Nombre completo" value="${esc(state.newClientForm.nombre)}" oninput="Crm.newClientField('nombre',this.value)">
@@ -633,15 +633,41 @@
     </div>` : ''}
     <div id="clientListBody" style="display:flex;flex-direction:column;gap:10px">${rows || `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:24px 10px">No se encontraron clientes.</div>`}</div>`;
   }
+  function clientVisitHistory(key) {
+    return DATA.turnos.filter(t => (t.cliente_nombre || '').trim().toLowerCase() === key)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora_min - a.hora_min);
+  }
   function clientEditForm(c) {
     const allTags = ['VIP', 'Recurrente', 'Nuevo', 'Riesgo de fuga'];
+    const hist = clientVisitHistory(c.key);
+    const first = hist.length ? hist[hist.length - 1] : null;
+    const ticketProm = c.visitas ? c.gasto / c.visitas : 0;
+    const favB = c.barbero ? barb(c.barbero) : null;
+    const statsRow = `<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
+      <div style="background:var(--panel2);border-radius:10px;padding:10px 12px"><div style="font-size:9.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px">Cliente desde</div><div style="font-size:13px;font-weight:700;margin-top:2px">${first ? dayLabel(first.fecha).replace('Hoy · ', '') : '—'}</div></div>
+      <div style="background:var(--panel2);border-radius:10px;padding:10px 12px"><div style="font-size:9.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px">Ticket promedio</div><div style="font-size:13px;font-weight:700;margin-top:2px">${fmtMoney.format(ticketProm)}</div></div>
+      <div style="background:var(--panel2);border-radius:10px;padding:10px 12px"><div style="font-size:9.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px">Barbero favorito</div><div style="font-size:13px;font-weight:700;margin-top:2px">${favB ? esc(favB.alias) : '—'}</div></div>
+    </div>`;
+    const timeline = `<div style="grid-column:1/-1">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted2);margin-bottom:8px">Historial de visitas</div>
+      ${hist.length ? `<div style="display:flex;flex-direction:column;max-height:220px;overflow-y:auto">
+        ${hist.slice(0, 12).map(t => { const sm = statusMeta(t.estado); const bb = barb(t.barbero_id); return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
+          <div style="width:6px;height:6px;border-radius:50%;background:${bb.color};flex:none"></div>
+          <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">${esc(t.servicio_nombre)} <span style="font-weight:500;color:var(--muted)">· ${esc(bb.alias)}</span></div><div style="font-size:11px;color:var(--muted2)">${dayLabel(t.fecha)} · ${minToStr(t.hora_min)}</div></div>
+          <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap">${fmtMoney.format(t.precio)}</div>
+          <span class="badge" style="background:${sm.bg};color:${sm.color}">${sm.label}</span>
+        </div>`; }).join('')}
+      </div>` : `<div style="text-align:center;color:var(--muted2);font-size:12px;padding:10px 0">Sin turnos registrados aún.</div>`}
+    </div>`;
     return `<div onclick="event.stopPropagation()" class="grid-2" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-strong);gap:10px">
+      ${statsRow}
+      ${timeline}
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Teléfono</label><input class="input" id="cf_tel" value="${esc(c.tel)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Email</label><input class="input" id="cf_email" value="${esc(c.email)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Cumpleaños (MM-DD)</label><input class="input" id="cf_cumple" placeholder="07-15" value="${esc(c.cumpleanos)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Puntos</label><input class="input" type="number" id="cf_puntos" value="${c.puntos}"></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Notas</label><textarea class="input" id="cf_notas" style="min-height:56px;resize:vertical">${esc(c.notas)}</textarea></div>
-      <div style="grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap">${allTags.map(tg => { const on = (c.tags || []).includes(tg); return `<button type="button" onclick="Crm.toggleClientTag(this,'${tg}')" data-on="${on}" style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;border:1px solid ${on ? 'var(--gold)' : 'var(--border-strong)'};background:${on ? 'var(--gold)' : 'var(--panel2)'};color:${on ? '#17130f' : 'var(--muted)'}">${tg}</button>`; }).join('')}</div>
+      <div style="grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap">${allTags.map(tg => { const on = (c.tags || []).includes(tg); return `<button type="button" onclick="Crm.toggleClientTag(this,'${tg}')" data-on="${on}" style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;border:1px solid ${on ? 'var(--gold)' : 'var(--border-strong)'};background:${on ? 'var(--gold)' : 'var(--panel2)'};color:${on ? '#ffffff' : 'var(--muted)'}">${tg}</button>`; }).join('')}</div>
       <div style="grid-column:1/-1;display:flex;justify-content:flex-end"><button class="btn btn-gold" onclick="Crm.saveClient('${jsStr(c.key)}')">Guardar ficha</button></div>
     </div>`;
   }
@@ -667,14 +693,14 @@
   }
   function calToolbar() {
     const views = [['month', 'Mes'], ['week', 'Semana'], ['day', 'Día']];
-    const viewBtns = views.map(([v, label]) => `<button onclick="Crm.calSetView('${v}')" style="font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:7px;border:none;cursor:pointer;background:${state.calView === v ? 'var(--gold)' : 'transparent'};color:${state.calView === v ? '#17130f' : 'var(--muted)'}">${label}</button>`).join('');
+    const viewBtns = views.map(([v, label]) => `<button onclick="Crm.calSetView('${v}')" style="font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:7px;border:none;cursor:pointer;background:${state.calView === v ? 'var(--gold)' : 'transparent'};color:${state.calView === v ? '#ffffff' : 'var(--muted)'}">${label}</button>`).join('');
     return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
       <button onclick="Crm.calToday()" style="font-size:12px;font-weight:700;padding:8px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">Hoy</button>
       <button onclick="Crm.calNav(-1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">‹</button>
       <button onclick="Crm.calNav(1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">›</button>
       <div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;text-transform:capitalize;margin-right:auto">${calPeriodLabel()}</div>
       <div style="display:inline-flex;gap:2px;background:var(--panel2);padding:3px;border-radius:10px">${viewBtns}</div>
-      <button onclick="Crm.calOpenModal()" style="font-size:12px;font-weight:800;padding:8px 14px;border-radius:9px;border:none;cursor:pointer;background:linear-gradient(160deg,var(--gold-soft),#b9862f);color:#17130f">+ Nuevo turno</button>
+      <button onclick="Crm.calOpenModal()" style="font-size:12px;font-weight:800;padding:8px 14px;border-radius:9px;border:none;cursor:pointer;background:linear-gradient(160deg,var(--gold-soft),#1d4ed8);color:#ffffff">+ Nuevo turno</button>
     </div>`;
   }
   function calMiniCalendar() {
@@ -686,7 +712,7 @@
       const key = y + '-' + pad(m + 1) + '-' + pad(dd);
       const isToday = key === todayKey(), isSel = key === state.calSelectedDay;
       const has = DATA.turnos.some(a => a.fecha === key);
-      cells += `<button onclick="Crm.calSelectDay('${key}')" style="aspect-ratio:1;border-radius:6px;border:1px solid ${isToday && !isSel ? 'rgba(201,154,63,0.5)' : 'transparent'};background:${isSel ? 'var(--gold)' : (isToday ? 'var(--panel2)' : 'transparent')};color:${isSel ? '#17130f' : (isToday ? 'var(--gold-soft)' : 'var(--text)')};font-size:10px;font-weight:700;cursor:pointer;position:relative">${dd}${has && !isSel ? `<span style="position:absolute;bottom:1px;left:50%;transform:translateX(-50%);width:3px;height:3px;border-radius:50%;background:var(--gold)"></span>` : ''}</button>`;
+      cells += `<button onclick="Crm.calSelectDay('${key}')" style="aspect-ratio:1;border-radius:6px;border:1px solid ${isToday && !isSel ? 'rgba(37,99,235,0.5)' : 'transparent'};background:${isSel ? 'var(--gold)' : (isToday ? 'var(--panel2)' : 'transparent')};color:${isSel ? '#ffffff' : (isToday ? 'var(--gold-soft)' : 'var(--text)')};font-size:10px;font-weight:700;cursor:pointer;position:relative">${dd}${has && !isSel ? `<span style="position:absolute;bottom:1px;left:50%;transform:translateX(-50%);width:3px;height:3px;border-radius:50%;background:var(--gold)"></span>` : ''}</button>`;
     }
     return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <button onclick="Crm.calMiniMonth(-1)" style="width:22px;height:22px;border-radius:6px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer;font-size:11px">‹</button>
@@ -700,7 +726,7 @@
     const active = calActiveIds();
     return DATA.barberos.map(b => { const on = active.includes(b.id);
       return `<label onclick="Crm.calToggleBarber('${b.id}')" style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;color:${on ? 'var(--text)' : 'var(--muted2)'}">
-        <span style="width:14px;height:14px;border-radius:4px;border:1.5px solid ${b.color};background:${on ? b.color : 'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;color:#17130f;flex:none">${on ? '✓' : ''}</span>
+        <span style="width:14px;height:14px;border-radius:4px;border:1.5px solid ${b.color};background:${on ? b.color : 'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;color:#ffffff;flex:none">${on ? '✓' : ''}</span>
         ${esc(b.alias)}
       </label>`;
     }).join('');
@@ -719,7 +745,7 @@
         return `<div onclick="event.stopPropagation();Crm.calShowDetail(${t.id})" style="font-size:9.5px;font-weight:600;padding:2px 5px;border-radius:5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;background:${tint(b.color, 0.16)};color:${b.color};border-left:2px solid ${b.color}">${minToStr(t.hora_min)} ${esc(t.cliente_nombre)}</div>`;
       }).join('');
       cells += `<div onclick="Crm.calSelectDay('${key}')" style="background:var(--panel);min-height:92px;padding:5px;cursor:pointer">
-        <div style="font-size:11px;font-weight:700;margin-bottom:3px;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${isToday ? 'var(--gold)' : 'transparent'};color:${isToday ? '#17130f' : 'var(--text)'}">${dd}</div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:3px;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${isToday ? 'var(--gold)' : 'transparent'};color:${isToday ? '#ffffff' : 'var(--text)'}">${dd}</div>
         ${chips}${items.length > 3 ? `<div style="font-size:9px;color:var(--muted2);font-weight:700">+${items.length - 3} más</div>` : ''}
       </div>`;
     }
@@ -811,7 +837,7 @@
         <div style="font-size:13px;color:var(--muted);margin-bottom:10px">${esc(t.servicio_nombre)} · ${fmtMoney.format(t.precio)}</div>
         <div style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;color:${b.color};margin-bottom:14px"><span style="width:8px;height:8px;border-radius:50%;background:${b.color}"></span>${esc(b.alias)}</div>
         ${t.estado === 'confirmado' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          <button onclick="Crm.calCloseDetail();Crm.setEstado(${t.id},'completado')" style="flex:1;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:none;cursor:pointer;background:var(--green);color:#0e140f">✓ Completado</button>
+          <button onclick="Crm.calCloseDetail();Crm.setEstado(${t.id},'completado')" style="flex:1;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:none;cursor:pointer;background:var(--green);color:#ffffff">✓ Completado</button>
           <button onclick="Crm.calCloseDetail();Crm.setEstado(${t.id},'no-show')" style="flex:1;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--purple);cursor:pointer">No-show</button>
           <button onclick="Crm.calCloseDetail();Crm.setEstado(${t.id},'cancelado')" style="flex:1;font-size:11.5px;font-weight:700;padding:8px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--red);cursor:pointer">Cancelar</button>
         </div>` : ''}
@@ -846,7 +872,7 @@
     const ranking = dir.slice().sort((a, b) => (b.puntos || 0) - (a.puntos || 0)).slice(0, 5);
     return `<div class="grid-2" style="margin-bottom:16px">
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Cumpleaños próximos (30 días)</h3>
-        ${withBday.length ? withBday.map(x => `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;background:rgba(201,154,63,0.16);color:var(--gold)">${initials(x.c.nombre)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">${esc(x.c.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">en ${x.d} día${x.d === 1 ? '' : 's'}</div></div></div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">No hay cumpleaños próximos.</div>`}
+        ${withBday.length ? withBday.map(x => `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;background:rgba(37,99,235,0.16);color:var(--gold)">${initials(x.c.nombre)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">${esc(x.c.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">en ${x.d} día${x.d === 1 ? '' : 's'}</div></div></div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">No hay cumpleaños próximos.</div>`}
       </section>
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Riesgo de fuga (1 sola visita)</h3>${rankList(unica.map((c, i) => rankRowView(i, c, '1 visita', 0.4)))}</section>
     </div>
@@ -855,7 +881,7 @@
         ${noshowList.length ? noshowList.map(a => `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;background:rgba(147,112,138,0.16);color:var(--purple)">${initials(a.cliente_nombre)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">${esc(a.cliente_nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${dayLabel(a.fecha)} · ${esc(a.servicio_nombre)}</div></div></div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">Sin no-shows recientes.</div>`}
       </section>
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Programa de puntos <small style="color:var(--muted2);font-weight:500">(10 pts = corte gratis)</small></h3>
-        ${ranking.map((p, i) => { const can = (p.puntos || 0) >= 10; return `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:18px;text-align:center;font-weight:800;font-size:12.5px;color:var(--muted2)">${i + 1}</div><div style="flex:1;min-width:0;font-size:13.5px;font-weight:600">${esc(p.nombre)}</div><div style="font-size:12px;font-weight:700;color:var(--muted)">${p.puntos || 0} pts</div>${can ? `<button onclick="Crm.canjear('${jsStr(p.key)}')" style="margin-left:8px;font-size:10.5px;font-weight:700;padding:5px 10px;border-radius:8px;border:none;cursor:pointer;background:rgba(201,154,63,0.16);color:var(--gold)">Canjear</button>` : `<span style="margin-left:8px;font-size:10.5px;color:var(--muted2)">Faltan ${10 - (p.puntos || 0)} pts</span>`}</div>`; }).join('')}
+        ${ranking.map((p, i) => { const can = (p.puntos || 0) >= 10; return `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:18px;text-align:center;font-weight:800;font-size:12.5px;color:var(--muted2)">${i + 1}</div><div style="flex:1;min-width:0;font-size:13.5px;font-weight:600">${esc(p.nombre)}</div><div style="font-size:12px;font-weight:700;color:var(--muted)">${p.puntos || 0} pts</div>${can ? `<button onclick="Crm.canjear('${jsStr(p.key)}')" style="margin-left:8px;font-size:10.5px;font-weight:700;padding:5px 10px;border-radius:8px;border:none;cursor:pointer;background:rgba(37,99,235,0.16);color:var(--gold)">Canjear</button>` : `<span style="margin-left:8px;font-size:10.5px;color:var(--muted2)">Faltan ${10 - (p.puntos || 0)} pts</span>`}</div>`; }).join('')}
       </section>
     </div>`;
   }
@@ -958,11 +984,11 @@
       if (f === 'loginUser' || f === 'loginPass') {
         const valid = state.loginUser.trim() && state.loginPass.trim();
         const btn = document.getElementById('adminSubmitBtn');
-        if (btn) { btn.disabled = !valid || state.loginBusy; btn.style.background = valid ? 'linear-gradient(160deg,var(--gold-soft),#b9862f)' : ''; btn.style.color = valid ? '#17130f' : ''; }
+        if (btn) { btn.disabled = !valid || state.loginBusy; btn.style.background = valid ? 'linear-gradient(160deg,var(--gold-soft),#1d4ed8)' : ''; btn.style.color = valid ? '#ffffff' : ''; }
       } else if (f === 'loginPin') {
         const valid = state.loginBarberId && state.loginPin.trim();
         const btn = document.getElementById('barberoSubmitBtn');
-        if (btn) { btn.disabled = !valid || state.loginBusy; btn.style.background = valid ? 'linear-gradient(160deg,var(--gold-soft),#b9862f)' : ''; btn.style.color = valid ? '#17130f' : ''; }
+        if (btn) { btn.disabled = !valid || state.loginBusy; btn.style.background = valid ? 'linear-gradient(160deg,var(--gold-soft),#1d4ed8)' : ''; btn.style.color = valid ? '#ffffff' : ''; }
       }
     },
     pickBarbero: (id) => { state.loginBarberId = id; renderLogin(); },
@@ -1020,7 +1046,7 @@
       showToast('Cliente agregado'); await refresh();
     },
     toggleClient: (key) => { state.openClientKey = state.openClientKey === key ? null : key; render(); },
-    toggleClientTag: (btnEl) => { btnEl.dataset.on = btnEl.dataset.on === 'true' ? 'false' : 'true'; const on = btnEl.dataset.on === 'true'; btnEl.style.background = on ? 'var(--gold)' : 'var(--panel2)'; btnEl.style.color = on ? '#17130f' : 'var(--muted)'; btnEl.style.borderColor = on ? 'var(--gold)' : 'var(--border-strong)'; },
+    toggleClientTag: (btnEl) => { btnEl.dataset.on = btnEl.dataset.on === 'true' ? 'false' : 'true'; const on = btnEl.dataset.on === 'true'; btnEl.style.background = on ? 'var(--gold)' : 'var(--panel2)'; btnEl.style.color = on ? '#ffffff' : 'var(--muted)'; btnEl.style.borderColor = on ? 'var(--gold)' : 'var(--border-strong)'; },
     saveClient: async (key) => {
       const dir = directory(); const c = dir.find(x => x.key === key);
       const tel = document.getElementById('cf_tel').value, email = document.getElementById('cf_email').value,
