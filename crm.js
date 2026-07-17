@@ -15,7 +15,8 @@
     sidebarOpen: false, metricsPeriod: 30,
     calView: 'month', calAnchor: todayKey(), calSelectedDay: todayKey(), calActiveBarberos: null, calDetailId: null, calModalOpen: false, calNotesEditId: null,
     calBlockModalOpen: false, blockForm: { fecha: todayKey(), horaIni: '09:00', horaFin: '10:00', barberoId: 'all', motivo: '' },
-    reagendarId: null, ventaProductoOpen: false, ventaForm: { productoId: null, cantidad: 1, cliente: '', barberoId: null }
+    reagendarId: null, ventaProductoOpen: false, ventaForm: { productoId: null, cantidad: 1, cliente: '', barberoId: null },
+    cajaDate: todayKey(), dragTurnoId: null
   };
   let metricsCharts = {};
 
@@ -561,7 +562,8 @@
       </button>`;
     }).join('');
     const manageItems = [
-      { id: 'pipeline', label: 'Pipeline' }, { id: 'clientes', label: 'Clientes' }
+      { id: 'pipeline', label: 'Pipeline' }, { id: 'clientes', label: 'Clientes' },
+      { id: 'caja', label: 'Cierre de caja' }, { id: 'marketing', label: 'Marketing' }
     ].map(it => { const isOn = state.tab === it.id; return `<button onclick="Crm.selectTab('${it.id}')" style="display:flex;align-items:center;gap:10px;border:none;text-align:left;width:100%;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:2px;background:${isOn ? 'rgba(37,99,235,0.14)' : 'transparent'};color:${isOn ? 'var(--text)' : 'var(--muted)'}">${it.label}</button>`; }).join('');
     const authIni = isAdmin ? 'AD' : initials(barb(myId).alias);
     const authLabel = isAdmin ? 'Administrador' : barb(myId).alias;
@@ -591,13 +593,30 @@
     </aside>`;
   }
 
-  function kpiCard(icon, value, label, sub) {
+  function kpiCard(icon, value, label, sub, raw, kind) {
+    const countAttrs = raw != null ? ` data-countup="${raw}" data-kind="${kind || 'int'}"` : '';
     return `<div class="card" style="padding:18px">
       <div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;background:rgba(37,99,235,0.16);color:var(--gold);font-size:15px">${icon}</div>
-      <div style="font-family:'Manrope',sans-serif;font-weight:800;font-size:25px;letter-spacing:-0.3px">${value}</div>
+      <div style="font-family:'Manrope',sans-serif;font-weight:800;font-size:25px;letter-spacing:-0.3px"${countAttrs}>${value}</div>
       <div style="font-size:13px;font-weight:700;margin-top:4px">${label}</div>
       <div style="font-size:11.5px;color:var(--muted2);margin-top:1px">${sub}</div>
     </div>`;
+  }
+  function animateCounters() {
+    document.querySelectorAll('[data-countup]').forEach(el => {
+      const target = parseFloat(el.dataset.countup); if (isNaN(target)) return;
+      const kind = el.dataset.kind || 'int';
+      const fmt = v => kind === 'money' ? fmtMoney.format(v) : kind === 'pct' ? Math.round(v) + '%' : fmtN.format(Math.round(v));
+      const t0 = performance.now(), dur = 650;
+      function tick(now) {
+        const p = Math.min(1, (now - t0) / dur);
+        const ease = 1 - Math.pow(1 - p, 3);
+        el.textContent = fmt(target * ease);
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+      delete el.dataset.countup;
+    });
   }
   function rankList(rows) {
     if (!rows.length) return `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">Sin datos.</div>`;
@@ -644,16 +663,16 @@
       </div>`;
     }).join('');
 
-    return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px">
-      ${kpiCard('💰', fmtMoney.format(revMes), 'Ingresos del mes', 'mes en curso')}
-      ${kpiCard('📅', fmtN.format(turnosHoy), 'Turnos de hoy', 'agendados para hoy')}
-      ${kpiCard('🎫', fmtMoney.format(cuentaMes ? revMes / cuentaMes : 0), 'Ticket promedio', 'por turno')}
-      ${kpiCard('📊', st.ocupacion + '%', 'Ocupación de agenda', 'próximos ' + st.dias + ' días')}
+    return `<div class="stagger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px">
+      ${kpiCard('💰', fmtMoney.format(revMes), 'Ingresos del mes', 'mes en curso', revMes, 'money')}
+      ${kpiCard('📅', fmtN.format(turnosHoy), 'Turnos de hoy', 'agendados para hoy', turnosHoy, 'int')}
+      ${kpiCard('🎫', fmtMoney.format(cuentaMes ? revMes / cuentaMes : 0), 'Ticket promedio', 'por turno', cuentaMes ? revMes / cuentaMes : 0, 'money')}
+      ${kpiCard('📊', st.ocupacion + '%', 'Ocupación de agenda', 'próximos ' + st.dias + ' días', st.ocupacion, 'pct')}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px">
-      ${kpiCard('🧑', fmtN.format(nuevos), 'Clientes nuevos', 'este mes')}
-      ${kpiCard('🔁', ret + '%', 'Retención', 'clientes con 2+ visitas')}
-      ${kpiCard('⚠️', (turnosMes.length ? Math.round(perdidos / turnosMes.length * 100) : 0) + '%', 'Turnos perdidos', 'cancelados + no-show')}
+    <div class="stagger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px">
+      ${kpiCard('🧑', fmtN.format(nuevos), 'Clientes nuevos', 'este mes', nuevos, 'int')}
+      ${kpiCard('🔁', ret + '%', 'Retención', 'clientes con 2+ visitas', ret, 'pct')}
+      ${kpiCard('⚠️', (turnosMes.length ? Math.round(perdidos / turnosMes.length * 100) : 0) + '%', 'Turnos perdidos', 'cancelados + no-show', turnosMes.length ? Math.round(perdidos / turnosMes.length * 100) : 0, 'pct')}
       ${kpiCard('⭐', topSv ? topSv.nombre : '—', 'Servicio estrella', topSv ? Math.round(svCount[topSvId] / turnosMes.length * 100) + '% de los turnos' : 'sin datos')}
     </div>
     <div class="grid-2" style="margin-bottom:16px">
@@ -696,11 +715,11 @@
       <div><div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:20px">${esc(b.nombre)}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">${esc(b.especialidad)} · ${hoy} turno${hoy === 1 ? '' : 's'} hoy</div></div>
       <div style="margin-left:auto;text-align:right"><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:27px;color:${b.color}">${Math.round(s.share * 100)}%</div><div style="font-size:10.5px;color:var(--muted2)">de la facturación del local</div></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px">
-      ${kpiCard('💰', fmtMoney.format(s.rev), 'Mis ingresos', 'este mes')}
-      ${kpiCard('📅', fmtN.format(s.turnos), 'Mis turnos', 'realizados')}
-      ${kpiCard('🧑', fmtN.format(s.clientes), 'Clientes atendidos', 'distintos')}
-      ${kpiCard('🎫', fmtMoney.format(s.ticket), 'Ticket promedio', 'por turno')}
+    <div class="stagger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px">
+      ${kpiCard('💰', fmtMoney.format(s.rev), 'Mis ingresos', 'este mes', s.rev, 'money')}
+      ${kpiCard('📅', fmtN.format(s.turnos), 'Mis turnos', 'realizados', s.turnos, 'int')}
+      ${kpiCard('🧑', fmtN.format(s.clientes), 'Clientes atendidos', 'distintos', s.clientes, 'int')}
+      ${kpiCard('🎫', fmtMoney.format(s.ticket), 'Ticket promedio', 'por turno', s.ticket, 'money')}
     </div>
     <div style="margin-bottom:16px;font-size:12px;color:var(--muted);background:var(--panel);border:1px dashed var(--border-strong);border-radius:10px;padding:10px 12px">Cancelaciones: <b style="color:var(--gold-soft)">${cancel}</b> · No-shows: <b style="color:var(--gold-soft)">${noshow}</b></div>
     <div class="grid-2">
@@ -810,7 +829,7 @@
     return `<div onclick="event.stopPropagation()" class="grid-2" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-strong);gap:10px">
       ${statsRow}
       ${timeline}
-      <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Teléfono</label><input class="input" id="cf_tel" value="${esc(c.tel)}"></div>
+      <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Teléfono ${(() => { const wl = waLink(c.tel, `Hola ${c.nombre}! 👋 Te escribimos de IBIZA studio ✂️`); return wl ? `<a href="${wl}" target="_blank" rel="noopener" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px;background:#25D366;color:#fff;text-decoration:none;margin-left:6px">💬 WhatsApp</a>` : ''; })()}</label><input class="input" id="cf_tel" value="${esc(c.tel)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Email</label><input class="input" id="cf_email" value="${esc(c.email)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Cumpleaños (MM-DD)</label><input class="input" id="cf_cumple" placeholder="07-15" value="${esc(c.cumpleanos)}"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;margin-bottom:5px;color:var(--muted)">Puntos</label><input class="input" type="number" id="cf_puntos" value="${c.puntos}"></div>
@@ -905,7 +924,7 @@
         ${chips}${items.length > 3 ? `<div style="font-size:9px;color:var(--muted2);font-weight:700">+${items.length - 3} más</div>` : ''}
       </div>`;
     }
-    return `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden">${wd}${cells}</div>`;
+    return `<div class="cal-minw-month" style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden">${wd}${cells}</div>`;
   }
   function calWeekView() {
     const start = keyToDate(calWeekStartKey(state.calAnchor));
@@ -923,7 +942,7 @@
       const items = calTurnosForDay(key);
       const blocks = calBlocksForDayAny(key);
       let col = `<div style="position:relative;border-left:1px solid var(--border);height:${rowH * hours.length}px">`;
-      hours.forEach((h, hi) => { col += `<div onclick="Crm.calOpenModal('${key}','${pad(h)}:00')" style="position:absolute;top:${hi * rowH}px;left:0;right:0;height:${rowH}px;border-top:1px solid var(--border);cursor:pointer"></div>`; });
+      hours.forEach((h, hi) => { col += `<div onclick="Crm.calOpenModal('${key}','${pad(h)}:00')" ondragover="Crm.calDragOver(event)" ondragleave="Crm.calDragLeave(event)" ondrop="Crm.calDrop(event,'${key}',${h})" style="position:absolute;top:${hi * rowH}px;left:0;right:0;height:${rowH}px;border-top:1px solid var(--border);cursor:pointer"></div>`; });
       blocks.forEach(bl => {
         const top = ((bl.hora_inicio_min - hours[0] * 60) / 60) * rowH;
         const h = Math.max(((bl.hora_fin_min - bl.hora_inicio_min) / 60) * rowH - 2, 10);
@@ -933,11 +952,16 @@
         const b = barb(t.barbero_id);
         const top = ((t.hora_min - hours[0] * 60) / 60) * rowH;
         const h = Math.max((t.duracion_min / 60) * rowH - 2, 16);
-        col += `<div onclick="event.stopPropagation();Crm.calShowDetail(${t.id})" style="position:absolute;left:2px;right:2px;top:${top}px;height:${h}px;background:${tint(b.color, 0.18)};border-left:2px solid ${b.color};border-radius:4px;padding:2px 4px;font-size:8.5px;font-weight:600;color:${b.color};overflow:hidden;cursor:pointer;z-index:2">${minToStr(t.hora_min)} ${esc(t.cliente_nombre)}</div>`;
+        col += `<div class="turno-block" draggable="true" ondragstart="Crm.calDragStart(event,${t.id})" ondragend="Crm.calDragEnd(event)" onclick="event.stopPropagation();Crm.calShowDetail(${t.id})" style="position:absolute;left:2px;right:2px;top:${top}px;height:${h}px;background:${tint(b.color, 0.18)};border-left:2px solid ${b.color};border-radius:4px;padding:2px 4px;font-size:8.5px;font-weight:600;color:${b.color};overflow:hidden;cursor:grab;z-index:2">${minToStr(t.hora_min)} ${esc(t.cliente_nombre)}</div>`;
       });
+      if (key === todayKey()) {
+        const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+        if (nowMin >= hours[0] * 60 && nowMin <= (hours[hours.length - 1] + 1) * 60)
+          col += `<div class="cal-nowline" style="top:${((nowMin - hours[0] * 60) / 60) * rowH}px"></div>`;
+      }
       col += `</div>`; body += col;
     }
-    return `<div style="display:grid;grid-template-columns:44px repeat(7,1fr)">${head}</div><div style="display:grid;grid-template-columns:44px repeat(7,1fr)">${body}</div>`;
+    return `<div class="cal-minw"><div style="display:grid;grid-template-columns:44px repeat(7,1fr)">${head}</div><div style="display:grid;grid-template-columns:44px repeat(7,1fr)">${body}</div></div>`;
   }
   function calDayView() {
     const key = state.calSelectedDay;
@@ -950,7 +974,7 @@
       const items = DATA.turnos.filter(a => a.fecha === key && a.barbero_id === b.id);
       const blocks = calBlocksForDay(key, b.id);
       let col = `<div style="position:relative;border-left:1px solid var(--border);height:${rowH * hours.length}px">`;
-      hours.forEach((h, hi) => { col += `<div onclick="Crm.calOpenModal('${key}','${pad(h)}:00','${b.id}')" style="position:absolute;top:${hi * rowH}px;left:0;right:0;height:${rowH}px;border-top:1px solid var(--border);cursor:pointer"></div>`; });
+      hours.forEach((h, hi) => { col += `<div onclick="Crm.calOpenModal('${key}','${pad(h)}:00','${b.id}')" ondragover="Crm.calDragOver(event)" ondragleave="Crm.calDragLeave(event)" ondrop="Crm.calDrop(event,'${key}',${h},'${b.id}')" style="position:absolute;top:${hi * rowH}px;left:0;right:0;height:${rowH}px;border-top:1px solid var(--border);cursor:pointer"></div>`; });
       blocks.forEach(bl => {
         const top = ((bl.hora_inicio_min - hours[0] * 60) / 60) * rowH;
         const h3 = Math.max(((bl.hora_fin_min - bl.hora_inicio_min) / 60) * rowH - 2, 14);
@@ -959,11 +983,16 @@
       items.forEach(t => {
         const top = ((t.hora_min - hours[0] * 60) / 60) * rowH;
         const h2 = Math.max((t.duracion_min / 60) * rowH - 2, 22);
-        col += `<div onclick="event.stopPropagation();Crm.calShowDetail(${t.id})" style="position:absolute;left:3px;right:3px;top:${top}px;height:${h2}px;background:${tint(b.color, 0.18)};border-left:2px solid ${b.color};border-radius:5px;padding:3px 5px;font-size:9.5px;font-weight:600;color:var(--text);overflow:hidden;cursor:pointer;z-index:2"><div style="font-weight:700;color:${b.color}">${minToStr(t.hora_min)}</div>${esc(t.cliente_nombre)}</div>`;
+        col += `<div class="turno-block" draggable="true" ondragstart="Crm.calDragStart(event,${t.id})" ondragend="Crm.calDragEnd(event)" onclick="event.stopPropagation();Crm.calShowDetail(${t.id})" style="position:absolute;left:3px;right:3px;top:${top}px;height:${h2}px;background:${tint(b.color, 0.18)};border-left:2px solid ${b.color};border-radius:5px;padding:3px 5px;font-size:9.5px;font-weight:600;color:var(--text);overflow:hidden;cursor:grab;z-index:2"><div style="font-weight:700;color:${b.color}">${minToStr(t.hora_min)}</div>${esc(t.cliente_nombre)}</div>`;
       });
+      if (key === todayKey()) {
+        const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+        if (nowMin >= hours[0] * 60 && nowMin <= (hours[hours.length - 1] + 1) * 60)
+          col += `<div class="cal-nowline" style="top:${((nowMin - hours[0] * 60) / 60) * rowH}px"></div>`;
+      }
       col += `</div>`; body += col;
     });
-    return `<div style="display:grid;grid-template-columns:44px repeat(${barberos.length},1fr)">${head}</div><div style="display:grid;grid-template-columns:44px repeat(${barberos.length},1fr)">${body}</div>`;
+    return `<div class="cal-minw"><div style="display:grid;grid-template-columns:44px repeat(${barberos.length},1fr)">${head}</div><div style="display:grid;grid-template-columns:44px repeat(${barberos.length},1fr)">${body}</div></div>`;
   }
   function calFormModal() {
     if (!state.calModalOpen) return '';
@@ -1034,7 +1063,9 @@
           <span class="badge" style="color:${meta.color};background:${meta.bg}">${meta.label}</span>
         </div>
         <div style="font-weight:700;font-size:15px">${esc(t.cliente_nombre)}</div>
-        <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">${esc(t.cliente_tel || 'Sin teléfono')}</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:8px">${esc(t.cliente_tel || 'Sin teléfono')}
+          ${(() => { const b2 = barb(t.barbero_id); const wl = waLink(t.cliente_tel, `Hola ${t.cliente_nombre}! 👋 Te recordamos tu turno en IBIZA studio ✂️\n📆 ${dayLabel(t.fecha)} · ${minToStr(t.hora_min)} hs\n💈 ${t.servicio_nombre} con ${b2.alias}\n¡Te esperamos!`); return wl ? `<a href="${wl}" target="_blank" rel="noopener" style="font-size:10.5px;font-weight:800;padding:4px 10px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none">💬 WhatsApp</a>` : ''; })()}
+        </div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:10px">${esc(t.servicio_nombre)} · ${fmtMoney.format(t.precio)}</div>
         <div style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;color:${b.color};margin-bottom:14px"><span style="width:8px;height:8px;border-radius:50%;background:${b.color}"></span>${esc(b.alias)}</div>
         <div style="margin-bottom:12px">
@@ -1085,7 +1116,7 @@
     const ranking = dir.slice().sort((a, b) => (b.puntos || 0) - (a.puntos || 0)).slice(0, 5);
     return `<div class="grid-2" style="margin-bottom:16px">
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Cumpleaños próximos (30 días)</h3>
-        ${withBday.length ? withBday.map(x => `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;background:rgba(37,99,235,0.16);color:var(--gold)">${initials(x.c.nombre)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">${esc(x.c.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">en ${x.d} día${x.d === 1 ? '' : 's'}</div></div></div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">No hay cumpleaños próximos.</div>`}
+        ${withBday.length ? withBday.map(x => { const wl = waLink(x.c.tel, `¡Feliz cumple, ${x.c.nombre}! 🎉 Todo el equipo de IBIZA studio te desea un día genial. Pasá a festejarlo con un corte ✂️😉`); return `<div style="display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;background:rgba(37,99,235,0.16);color:var(--gold)">${initials(x.c.nombre)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">${esc(x.c.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">en ${x.d} día${x.d === 1 ? '' : 's'}</div></div>${wl ? `<a href="${wl}" target="_blank" rel="noopener" style="font-size:10.5px;font-weight:800;padding:5px 10px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;white-space:nowrap">💬 Saludar</a>` : ''}</div>`; }).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:20px 10px">No hay cumpleaños próximos.</div>`}
       </section>
       <section class="card"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Riesgo de fuga (1 sola visita)</h3>${rankList(unica.map((c, i) => rankRowView(i, c, '1 visita', 0.4)))}</section>
     </div>
@@ -1164,6 +1195,105 @@
     <div style="display:flex;justify-content:flex-end"><button class="btn btn-gold" onclick="Crm.saveConfig()">Guardar cambios</button></div>`;
   }
 
+  // ============ CIERRE DE CAJA ============
+  function cajaData(dateKey) {
+    const turnosDia = DATA.turnos.filter(t => t.fecha === dateKey);
+    const completados = turnosDia.filter(t => t.estado === 'completado');
+    const confirmados = turnosDia.filter(t => t.estado === 'confirmado');
+    const perdidos = turnosDia.filter(t => t.estado === 'cancelado' || t.estado === 'no-show');
+    const ventas = (DATA.ventasProductos || []).filter(v => v.fecha === dateKey);
+    const totalServicios = completados.reduce((s, t) => s + Number(t.precio), 0);
+    const pendiente = confirmados.reduce((s, t) => s + Number(t.precio), 0);
+    const totalProductos = ventas.reduce((s, v) => s + Number(v.precio) * Number(v.cantidad || 1), 0);
+    const porBarbero = DATA.barberos.map(b => {
+      const bts = completados.filter(t => t.barbero_id === b.id);
+      const rev = bts.reduce((s, t) => s + Number(t.precio), 0);
+      const prodRev = ventas.filter(v => v.barbero_id === b.id).reduce((s, v) => s + Number(v.precio) * Number(v.cantidad || 1), 0);
+      const pct = b.comision_pct != null ? b.comision_pct : 50;
+      return { b, turnos: bts.length, rev, prodRev, comision: rev * pct / 100, pct };
+    });
+    const comisionTotal = porBarbero.reduce((s, x) => s + x.comision, 0);
+    return { turnosDia, completados, confirmados, perdidos, ventas, totalServicios, pendiente, totalProductos, porBarbero, comisionTotal, total: totalServicios + totalProductos };
+  }
+  function cajaResumenText(dateKey) {
+    const d = cajaData(dateKey);
+    let txt = '✂️ IBIZA studio — Cierre de caja\n📆 ' + dayLabel(dateKey) + '\n\n';
+    txt += '💰 Total del día: ' + fmtMoney.format(d.total) + '\n';
+    txt += '   Servicios (' + d.completados.length + ' turnos): ' + fmtMoney.format(d.totalServicios) + '\n';
+    txt += '   Productos (' + d.ventas.length + ' ventas): ' + fmtMoney.format(d.totalProductos) + '\n';
+    if (d.pendiente) txt += '   Pendiente de cobrar (' + d.confirmados.length + ' turnos sin cerrar): ' + fmtMoney.format(d.pendiente) + '\n';
+    txt += '\n👥 Por barbero:\n';
+    d.porBarbero.forEach(x => {
+      if (!x.turnos && !x.prodRev) return;
+      txt += '   ' + x.b.alias + ': ' + fmtMoney.format(x.rev) + ' (' + x.turnos + ' turnos) · comisión ' + x.pct + '% = ' + fmtMoney.format(x.comision) + '\n';
+    });
+    txt += '\n💸 Comisiones a pagar: ' + fmtMoney.format(d.comisionTotal);
+    txt += '\n🏦 Queda para el local: ' + fmtMoney.format(d.total - d.comisionTotal);
+    if (d.perdidos.length) txt += '\n⚠️ Perdidos: ' + d.perdidos.length + ' turno' + (d.perdidos.length === 1 ? '' : 's') + ' (cancelado/no-show)';
+    return txt;
+  }
+  function tabCaja() {
+    const dateKey = state.cajaDate;
+    const d = cajaData(dateKey);
+    const sinCerrar = d.confirmados.length;
+    const bRows = d.porBarbero.map(x => `<div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-top:1px solid var(--border)">
+      <div style="width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none;background:${x.b.color}22;color:${x.b.color}">${initials(x.b.alias)}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700">${esc(x.b.alias)}</div><div style="font-size:11px;color:var(--muted2)">${x.turnos} turno${x.turnos === 1 ? '' : 's'}${x.prodRev ? ' · productos ' + fmtMoney.format(x.prodRev) : ''}</div></div>
+      <div style="text-align:right"><div style="font-size:13px;font-weight:800">${fmtMoney.format(x.rev)}</div><div style="font-size:10.5px;color:var(--gold-soft);font-weight:700">comisión ${fmtMoney.format(x.comision)}</div></div>
+    </div>`).join('');
+    const ventasRows = d.ventas.length ? d.ventas.map(v => `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:12.5px">
+      <div style="flex:1;font-weight:600">${esc(v.producto_nombre)}${Number(v.cantidad || 1) > 1 ? ' ×' + v.cantidad : ''}</div>
+      <div style="color:var(--muted2);font-size:11px">${v.cliente_nombre ? esc(v.cliente_nombre) : ''}</div>
+      <div style="font-weight:700">${fmtMoney.format(Number(v.precio) * Number(v.cantidad || 1))}</div>
+    </div>`).join('') : `<div style="text-align:center;color:var(--muted2);font-size:12px;padding:14px 0">Sin ventas de productos.</div>`;
+    const manana = keyOf(addDays(new Date(), 1));
+    const turnosManana = DATA.turnos.filter(t => t.fecha === manana && t.estado === 'confirmado').sort((a, b) => a.hora_min - b.hora_min);
+    const recordatorios = turnosManana.map(t => {
+      const b = barb(t.barbero_id);
+      const link = waLink(t.cliente_tel, `Hola ${t.cliente_nombre}! 👋 Te recordamos tu turno de mañana en IBIZA studio ✂️\n📆 ${dayLabel(t.fecha)} · ${minToStr(t.hora_min)} hs\n💈 ${t.servicio_nombre} con ${b.alias}\n¡Te esperamos! Si no llegás, avisanos por acá.`);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
+        <div style="font-weight:800;font-size:12.5px;width:44px;flex:none">${minToStr(t.hora_min)}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${esc(t.cliente_nombre)}</div><div style="font-size:11px;color:var(--muted2)">${esc(t.servicio_nombre)} · ${esc(b.alias)}</div></div>
+        ${link ? `<a href="${link}" target="_blank" rel="noopener" style="font-size:11px;font-weight:800;padding:7px 12px;border-radius:9px;background:#25D366;color:#fff;text-decoration:none;white-space:nowrap">💬 Recordar</a>` : `<span style="font-size:10.5px;color:var(--muted2)">sin teléfono</span>`}
+      </div>`;
+    }).join('');
+    return `<div class="card no-print" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="Crm.cajaNav(-1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">‹</button>
+        <button onclick="Crm.cajaNav(1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">›</button>
+        <button onclick="Crm.cajaToday()" style="font-size:12px;font-weight:700;padding:8px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">Hoy</button>
+        <div style="font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;margin-left:4px">${dayLabel(dateKey)}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="Crm.cajaShare()" style="font-size:12px;font-weight:800;padding:9px 14px;border-radius:9px;border:none;cursor:pointer;background:#25D366;color:#fff">💬 Compartir por WhatsApp</button>
+        <button onclick="window.print()" style="font-size:12px;font-weight:700;padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);cursor:pointer">🖨 Imprimir</button>
+      </div>
+    </div>
+    ${sinCerrar ? `<div class="no-print" style="margin-bottom:14px;font-size:12.5px;font-weight:600;color:#92600a;background:rgba(217,164,6,0.1);border:1px solid rgba(217,164,6,0.35);border-radius:11px;padding:10px 14px">⏳ Hay <b>${sinCerrar} turno${sinCerrar === 1 ? '' : 's'} sin cerrar</b> (${fmtMoney.format(d.pendiente)}). Marcalos como completados o no-show en el Pipeline antes de cerrar la caja.</div>` : ''}
+    <div class="stagger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px">
+      ${kpiCard('💰', fmtMoney.format(d.total), 'Total del día', 'servicios + productos', d.total, 'money')}
+      ${kpiCard('✂️', fmtMoney.format(d.totalServicios), 'Servicios cobrados', d.completados.length + ' turno' + (d.completados.length === 1 ? '' : 's') + ' completado' + (d.completados.length === 1 ? '' : 's'), d.totalServicios, 'money')}
+      ${kpiCard('🛍️', fmtMoney.format(d.totalProductos), 'Productos', d.ventas.length + ' venta' + (d.ventas.length === 1 ? '' : 's'), d.totalProductos, 'money')}
+      ${kpiCard('🏦', fmtMoney.format(d.total - d.comisionTotal), 'Queda para el local', 'después de comisiones', d.total - d.comisionTotal, 'money')}
+    </div>
+    <div class="grid-2" style="margin-bottom:16px">
+      <section class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px">Por barbero</h3><span style="font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">comisiones: ${fmtMoney.format(d.comisionTotal)}</span></div>
+        ${bRows}
+      </section>
+      <section class="card">
+        <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Productos vendidos</h3>
+        ${ventasRows}
+        ${d.perdidos.length ? `<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border-strong);font-size:12px;color:var(--muted)">⚠️ ${d.perdidos.length} turno${d.perdidos.length === 1 ? '' : 's'} perdido${d.perdidos.length === 1 ? '' : 's'} hoy (cancelado/no-show)</div>` : ''}
+      </section>
+    </div>
+    <section class="card no-print">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.5px">📲 Recordatorios de mañana (${dayLabel(manana).toLowerCase()})</h3><span style="font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">${turnosManana.length} turno${turnosManana.length === 1 ? '' : 's'}</span></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">Un click abre WhatsApp con el recordatorio ya escrito — solo tocás enviar.</div>
+      ${recordatorios || `<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:16px 0">No hay turnos confirmados para mañana.</div>`}
+    </section>`;
+  }
+
   function content() {
     const isAdmin = state.auth.role === 'admin';
     let title = '', sub = '', body = '';
@@ -1171,6 +1301,7 @@
     else if (state.tab === 'pipeline') { title = 'Pipeline'; sub = 'Turnos del día, organizados por estado'; body = tabPipeline(); }
     else if (state.tab === 'clientes') { title = 'Clientes'; sub = 'Historial, fichas y contacto'; body = tabClientes(); }
     else if (state.tab === 'calendario') { title = 'Calendario'; sub = 'Vista mensual, semanal y diaria — se actualiza solo cuando entra una reserva'; body = tabCalendario(); }
+    else if (state.tab === 'caja' && isAdmin) { title = 'Cierre de caja'; sub = 'Resumen del día para cerrar el local'; body = tabCaja(); }
     else if (state.tab === 'marketing' && isAdmin) { title = 'Marketing'; sub = 'Cumpleaños, riesgo de fuga y puntos'; body = tabMarketing(); }
     else if (state.tab === 'config' && isAdmin) { title = 'Configuración'; sub = 'Servicios, precios y horario del local'; body = tabConfig(); }
     else { const b = barb(state.tab); title = b.nombre; sub = 'Agenda y desempeño individual'; body = tabBarbero(state.tab); }
@@ -1191,6 +1322,16 @@
     </div>`;
   }
 
+  function bottomNav() {
+    const isAdmin = state.auth.role === 'admin';
+    const items = isAdmin
+      ? [{ id: 'gerente', ico: '📊', label: 'Panel' }, { id: 'calendario', ico: '📅', label: 'Calendario' }, { id: 'pipeline', ico: '⚡', label: 'Pipeline' }, { id: 'clientes', ico: '👥', label: 'Clientes' }, { id: 'caja', ico: '💵', label: 'Caja' }]
+      : [{ id: state.auth.id, ico: '📊', label: 'Mi panel' }, { id: 'calendario', ico: '📅', label: 'Calendario' }, { id: 'pipeline', ico: '⚡', label: 'Pipeline' }, { id: 'clientes', ico: '👥', label: 'Clientes' }];
+    return `<nav class="crm-bottomnav">${items.map(it =>
+      `<button class="${state.tab === it.id ? 'on' : ''}" onclick="Crm.selectTab('${it.id}')"><span class="bn-ico">${it.ico}</span>${it.label}</button>`
+    ).join('')}</nav>`;
+  }
+
   function render() {
     if (!state.auth) { renderLogin(); return; }
     if (state.auth.role === 'barbero' && !DATA.barberos.some(b => b.id === state.auth.id)) { state.tab = DATA.barberos[0] ? DATA.barberos[0].id : 'clientes'; }
@@ -1203,8 +1344,10 @@
         ${sidebar()}
         ${content()}
       </div>
+      ${bottomNav()}
     </div>`;
     if (state.tab === 'gerente' && state.auth.role === 'admin') setTimeout(renderMetricsCharts, 0);
+    setTimeout(animateCounters, 0);
   }
 
   // ============ API pública para los onclick ============
@@ -1230,6 +1373,9 @@
     setMetricsPeriod: (p) => { state.metricsPeriod = p; render(); },
     setEstado,
     setPipelineFilter: (id) => { state.pipelineBarberFilter = id; render(); },
+    cajaNav: (delta) => { state.cajaDate = keyOf(addDays(keyToDate(state.cajaDate), delta)); render(); },
+    cajaToday: () => { state.cajaDate = todayKey(); render(); },
+    cajaShare: () => { window.open('https://wa.me/?text=' + encodeURIComponent(cajaResumenText(state.cajaDate)), '_blank'); },
     calSetView: (v) => { state.calView = v; render(); },
     calNav: (delta) => {
       if (state.calView === 'month') { const d = keyToDate(state.calAnchor); state.calAnchor = keyOf(new Date(d.getFullYear(), d.getMonth() + delta, 1)); }
@@ -1244,6 +1390,33 @@
       const active = calActiveIds().slice(); const idx = active.indexOf(id);
       if (idx >= 0) active.splice(idx, 1); else active.push(id);
       state.calActiveBarberos = active; render();
+    },
+    calDragStart: (e, id) => {
+      state.dragTurnoId = id;
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(id)); } catch (_) {}
+      e.target.classList.add('dragging');
+    },
+    calDragEnd: (e) => { e.target.classList.remove('dragging'); },
+    calDragOver: (e) => {
+      if (state.dragTurnoId == null) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      e.currentTarget.classList.add('cal-cell-drop');
+    },
+    calDragLeave: (e) => { e.currentTarget.classList.remove('cal-cell-drop'); },
+    calDrop: async (e, fecha, hourStart, barberoId) => {
+      e.preventDefault(); e.currentTarget.classList.remove('cal-cell-drop');
+      const id = state.dragTurnoId; state.dragTurnoId = null;
+      if (id == null) return;
+      const t = DATA.turnos.find(x => x.id === id); if (!t) return;
+      const rowH = e.currentTarget.offsetHeight || 42;
+      const q = Math.min(45, Math.max(0, Math.round((e.offsetY / rowH) * 60 / 15) * 15));
+      const horaMin = hourStart * 60 + q;
+      const payload = { fecha, hora_min: horaMin };
+      if (barberoId) payload.barbero_id = barberoId;
+      await sb.from('turnos').update(payload).eq('id', id);
+      const bNew = barberoId ? barb(barberoId) : barb(t.barbero_id);
+      showToast('Turno movido: ' + dayLabel(fecha) + ' · ' + minToStr(horaMin) + ' · ' + bNew.alias);
+      await refresh();
     },
     calShowDetail: (id) => { state.calDetailId = id; render(); },
     calCloseDetail: () => { state.calDetailId = null; render(); },

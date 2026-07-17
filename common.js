@@ -85,6 +85,14 @@ function subscribeRealtime(onChange) {
     .subscribe();
 }
 
+// WhatsApp con mensaje pre-armado. Asume Argentina si el número no trae código de país.
+function waLink(tel, text) {
+  let d = (tel || '').replace(/\D/g, '');
+  if (!d) return null;
+  if (!d.startsWith('54') && d.length <= 11) d = '54' + (d.startsWith('9') ? '' : '9') + d;
+  return 'https://wa.me/' + d + (text ? '?text=' + encodeURIComponent(text) : '');
+}
+
 function showToast(msg) {
   let el = document.getElementById('globalToast');
   if (!el) { el = document.createElement('div'); el.id = 'globalToast'; el.className = 'toast'; document.body.appendChild(el); }
